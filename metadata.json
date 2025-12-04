@@ -1,0 +1,7 @@
+{
+  "name": "GreenNova AI LaunchPad",
+  "description": "Turn Any Link Into Viral Posts, Comments & Blogs That Drive Traffic & Sales.",
+  "requestFramePermissions": [
+    "microphone"
+  ]
+}
