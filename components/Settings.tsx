@@ -1,3 +1,4 @@
+
 import React from 'react';
 import { Moon, Sun } from 'lucide-react';
 
@@ -15,7 +16,7 @@ const Settings: React.FC<SettingsProps> = ({ theme, setTheme }) => {
     <div className="max-w-2xl mx-auto space-y-8 animate-fade-in">
       <div className="mb-8">
         <h1 className="text-3xl font-serif font-bold text-gray-900 dark:text-white">Settings</h1>
-        <p className="text-gray-500 dark:text-gray-400 mt-1">Customize your GreenNova AI LaunchPad experience.</p>
+        <p className="text-gray-500 dark:text-gray-400 mt-1">Customize your Sustainable Business Launch System experience.</p>
       </div>
       <div className="bg-white dark:bg-dark-card p-8 rounded-3xl shadow-sm dark:shadow-premium border border-gray-200 dark:border-gray-800 space-y-8">
         
@@ -53,7 +54,7 @@ const Settings: React.FC<SettingsProps> = ({ theme, setTheme }) => {
         </div>
 
         <div className="pt-6 border-t border-gray-100 dark:border-gray-800">
-            <span className="text-xs font-bold text-gray-400 dark:text-gray-500">GreenNova AI LaunchPad v2.0.0</span>
+            <span className="text-xs font-bold text-gray-400 dark:text-gray-500">SBL System v2.0.0</span>
         </div>
       </div>
     </div>

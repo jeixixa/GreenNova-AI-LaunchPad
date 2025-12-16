@@ -1,6 +1,7 @@
+
 import { SavedItem } from '../types';
 
-const STORAGE_KEY = 'greennova_saved_content';
+const STORAGE_KEY = 'sbl_system_saved_content';
 
 export const getSavedItems = (): SavedItem[] => {
   try {

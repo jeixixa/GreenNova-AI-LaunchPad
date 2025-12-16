@@ -1,3 +1,4 @@
+
 import React from 'react';
 import { View } from '../types';
 import { Zap, Users, Eye, MousePointer, Sparkles, ArrowUpRight, Mic, Image as ImageIcon, Youtube } from 'lucide-react';
@@ -26,14 +27,14 @@ const Dashboard: React.FC<DashboardProps> = ({ onNavigate }) => {
     <div className="space-y-8 animate-fade-in max-w-7xl mx-auto py-6">
       <div className="flex flex-col xl:flex-row xl:items-center justify-between gap-6">
         <div>
-          <h1 className="text-4xl font-serif font-bold text-white tracking-tight">Welcome back, Creator</h1>
-          <p className="text-gray-400 mt-2 text-lg">Ready to go viral with GreenNova AI?</p>
+          <h1 className="text-4xl font-serif font-bold text-white tracking-tight">Welcome to your LaunchPad</h1>
+          <p className="text-gray-400 mt-2 text-lg">Ready to grow your sustainable business with the SBL System?</p>
         </div>
         
         <div className="flex flex-col sm:flex-row gap-4 h-full">
             <button 
               onClick={() => onNavigate(View.VIRAL_GENERATOR)}
-              className="bg-brand-600 text-white px-8 py-3 rounded-2xl font-bold hover:bg-brand-500 transition-all flex items-center justify-center shadow-glow hover:shadow-glow-lg hover:-translate-y-0.5 h-full min-h-[60px]"
+              className="bg-brand-900 text-white px-8 py-3 rounded-2xl font-bold hover:bg-brand-800 border-2 border-brand-700 transition-all flex items-center justify-center shadow-brand-900/20 hover:shadow-glow-lg hover:-translate-y-0.5 h-full min-h-[60px]"
             >
               <Sparkles className="w-5 h-5 mr-2" />
               Create Viral Post
@@ -55,7 +56,7 @@ const Dashboard: React.FC<DashboardProps> = ({ onNavigate }) => {
          <h2 className="text-2xl font-bold text-white mb-4">Start Creating Content</h2>
          <p className="text-gray-400 mb-8 max-w-lg mx-auto leading-relaxed">Select a tool from the sidebar to begin your journey. Use the Viral Post Generator for Facebook threads or create Authority Images.</p>
          <div className="flex flex-wrap justify-center gap-4">
-            <button onClick={() => onNavigate(View.VIRAL_GENERATOR)} className="bg-brand-600 text-white px-8 py-3.5 rounded-xl font-bold hover:bg-brand-500 shadow-glow transition-all flex items-center">
+            <button onClick={() => onNavigate(View.VIRAL_GENERATOR)} className="bg-brand-900 text-white px-8 py-3.5 rounded-xl font-bold hover:bg-brand-800 border-2 border-brand-700 shadow-brand-900/20 transition-all flex items-center">
                <Sparkles className="w-5 h-5 mr-2" />
                Viral Posts
             </button>

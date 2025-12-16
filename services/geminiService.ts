@@ -1,4 +1,5 @@
-import { GoogleGenAI, Modality } from "@google/genai";
+
+import { GoogleGenAI, Modality, VideoGenerationReferenceType } from "@google/genai";
 
 const getAIClient = () => {
   const apiKey = process.env.API_KEY;
@@ -30,598 +31,489 @@ export interface ViralPostParams {
 }
 
 export const generateViralPost = async (params: ViralPostParams): Promise<string> => {
-  try {
-    const ai = getAIClient();
+  const ai = getAIClient();
     
-    let promptContext = "";
-    let tools: any[] = [];
+  let promptContext = "";
+  let tools: any[] = [];
 
-    // --- PLATFORM TEMPLATES ---
-    const platformTemplates: Record<string, string> = {
-        'Facebook': `
-        **PLATFORM: FACEBOOK**
-        - Format: Short-form text, soft CTA.
-        - Style: No spam triggers. Conversational. No jargon.
-        - Structure: Hook -> Story/Value -> Soft Bridge -> CTA.
-        `,
-        'Instagram': `
-        **PLATFORM: INSTAGRAM**
-        - Format: Engaging Caption for an Image/Reel.
-        - Structure: Hook (first line visible) -> Value Body -> CTA.
-        - Extras: Include 3 Hashtag Banks at the bottom (Low, Medium, High competition).
-        `,
-        'LinkedIn': `
-        **PLATFORM: LINKEDIN**
-        - Format: Professional, structured text.
-        - Style: Thought leadership, plain English.
-        - Structure: Professional Hook -> Insight -> Takeaway -> CTA.
-        `,
-        'X (Twitter)': `
-        **PLATFORM: X (TWITTER)**
-        - Format: ${params.isThread ? 'Thread (Chain of tweets)' : 'Long-form Post'}.
-        - Style: Punchy, short sentences, high value density.
-        - Extras: Include 9 reply-chain comments to boost engagement.
-        `,
-        'TikTok': `
-        **PLATFORM: TIKTOK**
-        - Format: Video Script Description / Caption.
-        - Style: Hook -> Body -> CTA.
-        - Focus: fast-paced, visual descriptions.
-        `,
-        'YouTube': `
-        **PLATFORM: YOUTUBE**
-        - Format: Video Title, Short Description, and Long Description.
-        - Extras: SEO keywords and timestamps placeholder.
-        `
-    };
+  // --- PLATFORM TEMPLATES ---
+  const platformTemplates: Record<string, string> = {
+      'Facebook': `
+      **PLATFORM: FACEBOOK (Viral Thread Style)**
+      - **Main Post Rules (Colored Background Style)**:
+        1. **120–130 characters MAX** (not including the 👇👇).
+        2. **Must end with 👇👇**.
+        3. Creates curiosity and makes people open comments.
+        4. Short, bold, scroll-stopping.
+        5. Example: "Everyone’s using AI wrong and missing millions in potential income 👇👇"
+      `,
+      'Instagram': `
+      **PLATFORM: INSTAGRAM**
+      - Format: Engaging Caption for an Image/Reel.
+      - Structure: Hook (first line visible) -> Value Body -> CTA.
+      - Extras: Include 3 Hashtag Banks at the bottom (Low, Medium, High competition).
+      `,
+      'LinkedIn': `
+      **PLATFORM: LINKEDIN**
+      - Format: Professional, structured text.
+      - Style: Thought leadership, plain English.
+      - Structure: Professional Hook -> Insight -> Takeaway -> CTA.
+      `,
+      'X (Twitter)': `
+      **PLATFORM: X (TWITTER)**
+      - Format: ${params.isThread ? 'Thread (Chain of tweets)' : 'Long-form Post'}.
+      - Style: Punchy, short sentences, high value density.
+      - Extras: Include 9 reply-chain comments to boost engagement.
+      `,
+      'TikTok': `
+      **PLATFORM: TIKTOK**
+      - Format: Video Script Description / Caption.
+      - Style: Hook -> Body -> CTA.
+      - Focus: fast-paced, visual descriptions.
+      `,
+      'YouTube': `
+      **PLATFORM: YOUTUBE**
+      - Format: Video Title, Short Description, and Long Description.
+      - Extras: SEO keywords and timestamps placeholder.
+      `
+  };
 
-    const selectedPlatformTemplate = platformTemplates[params.platform] || platformTemplates['Facebook'];
+  const selectedPlatformTemplate = platformTemplates[params.platform] || platformTemplates['Facebook'];
 
-    // --- SECTION PROMPTS ---
+  // --- SECTION PROMPTS ---
 
-    const commentSectionPrompt = `
-    **SECTION 4: 9 VIRAL COMMENTS**
-    Generate exactly 9 numbered comments to post under the main content.
-    Format: "1 - [Insight]. **[Bridge to Offer]**"
-    Rules:
-    - Short, punchy, conversational (Jonathan Montoya style).
-    - Each must bridge to the offer: "${params.offerName}".
-    - **CRITICAL: You MUST BOLD the sentence that bridges to the offer** using markdown (e.g., **Check out the LaunchPad here**).
-    - **MANDATORY: The 9th (last) comment MUST be the 'Closer' and MUST explicitly include the Offer URL**: ${params.offerLink || '[Link in Bio]'}
-    - Include one specific Call to Action (CTA) in each.
-    - **NO JARGON**. Keep it simple.
-    `;
+  const commentSectionPrompt = `
+  **SECTION 4: 8 VIRAL COMMENTS (LADDER SYSTEM)**
+  
+  You must follow the **Viral Ladder Framework** exactly.
+  
+  **STRICT FORMATTING RULES:**
+  - **DO NOT** use headers like "Comment 1:", "Comment 2:" in the output text.
+  - **DO NOT** number the comments manually (e.g. "1. Strategy...").
+  - **COMMENTS 2-7 MUST BE SINGLE PARAGRAPHS** (No line breaks inside the comment).
+  - **COMMENT 8** is the only one allowing bullet points.
 
-    const imagePromptSection = `
-    **SECTION 2: VIRAL IMAGE PROMPT**
-    Generate a HIGHLY SPECIFIC image prompt following the "Viral Power Quote" style:
-    
-    • **Style**: "Viral Power Quote". High-end digital art style.
-    • **Theme**: "Digital Empire" / "Future Tech". Dark, moody, and ultra-modern.
-    • **Lighting**: Cinematic lighting with strong contrast (chiaroscuro). Volumetric lighting with glowing neon accents (Cyan, Electric Blue, or Golden Amber).
-    • **Background**: Dark, tech-themed environment with glowing elements (digital grids, holographic data, futuristic interfaces). Must be 80% dark to support text overlay.
-    • **Subject**: A single confident, powerful figure (modern entrepreneur). Intense, motivational, and triumphant expression.
-    • **Composition**: CRITICAL - Subject in the upper 60%. Bottom 40% must be clean, dark negative space for a quote overlay.
-    
-    **Context**: Visualise the topic "${params.topics.join(', ') || 'Business Success'}" within this specific dark, tech, cinematic aesthetic.
-    `;
+  **STRUCTURE:**
 
-    const blogSectionPrompt = `
-    **SECTION 3: VIRAL MINI-BLOG**
-    Write a high-impact short blog post (300-400 words) repurposing this topic.
-    Structure: Hook -> Problem -> Insight -> Solution -> Steps -> Payoff.
-    - Bridge to the offer "${params.offerName}" at the end.
-    - Practical, no fluff.
-    - **NO STARS OR DASHES** in the body text. Keep it clean.
-    `;
+  **COMMENT 1 (Context & Problem):**
+  - Write ONE natural paragraph explaining why most people fail or describing the "old way".
+  - Create contrast.
+  - No CTA in this comment.
+  - End with a checkmark benefit (e.g. "✅ Strategy beats chaos").
 
-    const instaThreadPrompt = `
-    **SECTION 6: INSTAGRAM THREAD / CAROUSEL**
-    Generate a 7-slide Carousel using the "Facebook-Safe Educational Graphic" script style:
+  **COMMENTS 2-7 (The Strategy Ladder):**
+  - Generate 6 distinct strategies.
+  - **Format for each:** "Strategy #X: [Strategy Name] [Full details with numbers/metrics] [Natural bridge sentence leading to ${params.offerName}]. 👇 Say '${params.offerName.toUpperCase()}' to [action]. ✅ [Short Benefit]"
+  - **CRITICAL**: The Strategy, Details, Bridge, CTA, and Benefit MUST be in the **SAME** paragraph. Do not split them.
 
-    **STYLE RULES (CRITICAL):**
-    - **NO HYPE**: Avoid risky words like "viral", "secret", "profit", "explode", "unlock", "cash", "money".
-    - **TONE**: Calm, educational, helpful, clear.
-    - **FORMAT**:
-        - Use **double asterisks** for **Yellow Highlighted Key Phrases**.
-        - Use [[double brackets]] for [[Blue Underlined Link-Style Text]].
-    
-    **SLIDE 1 STRUCTURE (The Hook):**
-    - Line 1: **[Strong Educational Hook in CAPS]**
-    - Line 2: [1-2 helpful sentences explaining the value]
-    - Line 3: [[Soft Call to Action (e.g. Comment 'GUIDE')]] 👇
-    - Line 4: (Tiny context/disclaimer note in parentheses)
+  **COMMENT 8 (The Close):**
+  - Start with: "🎯 Here’s what happens when..." (Summary of results)
+  - Then list exactly 4 bullet points:
+    → [Benefit 1]
+    → [Benefit 2]
+    → [Benefit 3]
+    → [Benefit 4]
+  - CTA Line: "👇 Say '${params.offerName.toUpperCase()}' for the complete system"
+  - Link: ${params.offerLink || '[Link in Bio]'}
+  - End with a contrast sentence: "Because [old way]. But [new way]? That’s the shortcut."
+  `;
 
-    **SLIDES 2-6 (The Lesson):**
-    - Deliver clear, numbered steps or insights.
-    - Highlight key terms with **bold**.
-    - Keep it short and readable.
-    - Ensure there are enough points to fill 7 slides total.
+  const imagePromptSection = `
+  **SECTION 2: VIRAL IMAGE PROMPT**
+  "Generate a high-quality, brand-consistent image that represents ${params.topics.join(', ')}. Use specific colors, styles, or elements to align with our brand identity."
+  
+  **CRITICAL ADAPTATION INSTRUCTION**:
+  Analyze the Topic: "${params.topics.join(', ')}". 
+  - If the topic is Business/Tech/Money -> Use "Digital Empire" / "Future Tech" theme. Dark, moody, neon.
+  - If the topic is Health/Wellness/Nature/Gardening -> Use "Organic Zen" theme. Bright, clean, nature elements, soft lighting.
+  - If the topic is Construction/Trades/Carpentry/Mechanic -> Use "Industrial Strength" theme. Concrete, steel, wood, blueprints, warm tungsten lighting.
+  - If the topic is Home/Lifestyle/Parenting/Housekeeping -> Use "Modern Warmth" theme. Cozy, interior design style, soft daylight.
+  - If the topic is Medical/Science -> Use "Clinical Clean" theme. White, blue, glass, laboratory precision.
+  - If the topic is Food/Cooking -> Use "Culinary Art" theme. Warm, appetizing, detailed textures.
+  - If the topic is Fashion/Beauty/Tailoring -> Use "Editorial Chic" theme. High fashion lighting, clean backgrounds, elegant.
+  - If the topic is Travel/Adventure -> Use "Wanderlust" theme. Epic landscapes, golden hour, dynamic angles.
+  - If the topic is Pet Care -> Use "Joyful Companions" theme. Bright colors, energetic, warm.
+  
+  **Standard Style Rules (Apply to all themes):**
+  • **Style**: High-end digital art or cinematic photography.
+  • **Mood**: Motivational, inspiring, intense, and triumphant (adapted to the niche).
+  • **Subject**: A single confident, powerful figure representing the niche (e.g., Doctor, Builder, Chef, Entrepreneur).
+  • **Composition**: CRITICAL - Subject in the upper 60%. Bottom 40% must be clean negative space for a quote overlay.
+  `;
 
-    **SLIDE 7 (The Close):**
-    - Soft educational CTA to: "${params.offerName}"
-    - Format: [[${params.offerLink || 'Link in comments'}]] 👇
-    - (Optional tiny note)
+  const blogSectionPrompt = `
+  **SECTION 3: VIRAL MINI-BLOG**
+  Write a high-impact short blog post (300-400 words) repurposing this topic.
+  Structure: Hook -> Problem -> Insight -> Solution -> Steps -> Payoff.
+  - Bridge to the offer "${params.offerName}" at the end.
+  - Practical, no fluff.
+  - **NO STARS OR DASHES** in the body text. Keep it clean.
+  `;
 
-    Format output as:
-    Slide 1: [Content]
-    Slide 2: [Content]
-    ...
-    Slide 7: [Content]
-    `;
+  const mainPostSection = `
+  **SECTION 5: MAIN POST BODY (CAPTION)**
+  "Create an engaging and relevant caption for the following image/topic: ${params.topics.join(', ')}.
+  
+  **CRITICAL LINKING RULES:**
+  1. **ONLY** refer to the User's Offer: "${params.offerName}" (Link: ${params.offerLink || 'Link in Bio'}).
+  2. **ONLY** refer to "GreenNova AI LaunchPad" as the system/tool used (if relevant).
+  3. **DO NOT** refer to random YouTube links or external articles unless they are the specific Offer Link provided above.
+  4. The Call to Action (CTA) must focus exclusively on getting the user to check out "${params.offerName}".
+  
+  The tone should be ${params.style}, and include specific keywords or hashtags."
+  
+  **Platform Specific Adjustments**:
+  - If Platform is **Facebook**: You MUST still follow the strict Viral Thread rule: 120-130 characters MAX, ending with 👇👇. You can provide the longer caption as an "Extended Caption" below the main hook.
+  - If Platform is **Instagram/LinkedIn/TikTok**: Use the full caption generated above.
+  `;
 
-    const tweetSectionPrompt = `
-    **SECTION 7: 5 VIRAL TWEETS**
-    Generate 5 distinct viral tweet variations based on the topic.
-    Format:
-    Tweet 1: [Content]
-    Tweet 2: [Content]
-    ...
-    Rules:
-    - Under 280 chars.
-    - Use 1-2 powerful hashtags.
-    - Engaging, punchy, controversial or insight-driven.
-    - Author Handle: ${params.handle} (Use this for context if needed).
-    `;
+  const instaThreadPrompt = `
+  **SECTION 6: INSTAGRAM THREAD / CAROUSEL**
+  
+  **ROLE**: World-class Instagram carousel designer and conversion-focused content strategist.
+  **GOAL**: Generate a scroll-stopping, high-retention 7-10 slide carousel designed for maximum reach, saves, and shares.
+  
+  **CONTEXT**:
+  - Topic: ${params.topics.join(', ')}
+  - Target Audience: ${params.targetAudience || 'Entrepreneurs, creators, sustainability startups'}
+  - Tone: ${params.style === 'Authority-Building' ? 'AUTHORITATIVE & EDUCATIONAL' : 'BOLD & MOTIVATIONAL'}
+  - Instagram Handle: ${params.handle}
+  - Brand Colors: Blue, Red, White.
+  
+  **DESIGN RULES (STRICT):**
+  1. **Slides**: 7–10 total.
+  2. **Font System**: Headlines (Anton/Bebas/League Spartan), Body (Inter/Poppins).
+  3. **Visuals**: Huge headlines (readable at arm's length).
+  4. **Color Syntax (Use these markers for emphasis in the text):**
+     - **Text** -> BLUE (Highlight/Strategy)
+     - ((Text)) -> RED (Urgent/Pain/Stop)
+     - {{Text}} -> WHITE (Bold/Emphasis)
+     - [[Text]] -> LIGHT BLUE (Trust/Calm)
+  5. **Minimal Text**: Max 8 words per headline. Max 2 short lines of body text.
+  
+  **CAROUSEL STRUCTURE:**
+  - **Slide 1 (HOOK)**: Pattern interrupt. Bold, controversial or curiosity-driven. No explanations. Example: "((Stop)) Doing This..."
+  - **Slides 2-6 (VALUE)**: One idea per slide. Clear, blunt statements. Avoid fluff. Use color syntax to highlight keywords.
+  - **Slide 7 (INSIGHT/SHIFT)**: Reframe belief or deliver a "mic-drop" truth.
+  - **Slide 8-9 (CTA)**: Direct CTA (e.g. "**Save This**", "Comment '{{${params.offerName}}}'", "Follow [[${params.handle}]]").
+  
+  **OUTPUT FORMAT**:
+  Slide 1: [Content with color syntax]
+  Slide 2: [Content with color syntax]
+  ...
+  Slide 9: [Content with color syntax]
+  `;
 
-    // Incorporate Topics and Hooks
-    const specificInstructions = `
-    **Specific Style Instructions:**
-    - Topics to Cover: ${params.topics.length > 0 ? params.topics.join(', ') : 'Viral Business Growth'}.
-    - Hook Style: ${params.hookType || 'High Impact'}.
-    - Target Audience: ${params.targetAudience}.
-    - **Offer Bridge**: "${params.offerName}" - ${params.offerDescription}.
-    - **Author Handle**: "${params.handle}".
-    `;
+  const tweetSectionPrompt = `
+  **SECTION 7: 5 VIRAL TWEETS**
+  Generate 5 distinct viral tweet variations based on the topic.
+  Format:
+  Tweet 1: [Content]
+  Tweet 2: [Content]
+  ...
+  Rules:
+  - Under 280 chars.
+  - Use 1-2 powerful hashtags.
+  - Engaging, punchy, controversial or insight-driven.
+  - Author Handle: ${params.handle} (Use this for context if needed).
+  `;
 
-    // --- MODE LOGIC ---
+  const strategySection = `
+  **SECTION 8: STRATEGY & ANALYTICS**
+  
+  **Content Scheduling:**
+  "Schedule this post to be published on [Recommend Date/Time] across ${params.platform}. Optimize posting times based on audience activity for maximum engagement."
+  
+  **Performance Analytics:**
+  "Track and report the performance of this post, including engagement, reach, click-through rate, and other key metrics. Provide actionable insights for improving future content."
+  
+  **Content Curation:**
+  "Suggest trending topics and relevant content ideas for ${params.topics.join(', ')}. Provide a list of 3 potential themes and ideas for upcoming posts to keep content fresh and engaging."
+  `;
 
-    if (params.style === 'Script-Generator') {
-        promptContext = `
-        **TASK: CREATE YOUTUBE VIDEO SCRIPT**
-        
-        **GOAL:** Create a full viral video script about: ${params.topics.join(', ') || params.contentUrl || 'Business Growth'}.
-        
-        **OFFER CONTEXT:**
-        - Name: ${params.offerName}
-        - Link: ${params.offerLink}
-        
-        **REQUIRED OUTPUT STRUCTURE:**
-        
-        **SECTION 1: VIDEO METADATA (5 TITLES)**
-        - Generate 5 distinct, high-CTR titles.
-        - Thumbnail Idea (High Contrast, Clickbait style matching the niche)
-        
-        **SECTION 5: FULL SCRIPT**
-        - **Hook (0-60s)**: Grab attention, state the problem, promise the solution.
-        - **Intro**: Brief credibility + "In this video...".
-        - **Body**: 3-5 Main Steps/Secrets.
-        - **Bridge**: Natural transition to the offer "${params.offerName}".
-        - **Outro**: CTA to click the link below.
-        
-        ${commentSectionPrompt}
-        ${instaThreadPrompt}
-        ${tweetSectionPrompt}
-        `;
-        
-        if (params.contentUrl) {
-             tools = [{ googleSearch: {} }]; // Read the URL if provided for the script source
-             promptContext += `\n\n**SOURCE MATERIAL**: Analyze this URL: ${params.contentUrl}`;
-        }
+  // Incorporate Topics and Hooks
+  const specificInstructions = `
+  **Specific Style Instructions:**
+  - Topics to Cover: ${params.topics.length > 0 ? params.topics.join(', ') : 'Viral Business Growth'}.
+  - Hook Style: ${params.hookType || 'High Impact'}.
+  - Target Audience: ${params.targetAudience}.
+  - **Offer Bridge**: "${params.offerName}" - ${params.offerDescription}.
+  - **Author Handle**: "${params.handle}".
+  `;
 
-    } else if (params.style === 'YouTube-Viral') {
-        // Specific logic for "On YouTube ... scan Offer ... create viral Facebook Posts ... bridge to Offer"
-        promptContext = `
-        **TASK: YOUTUBE VIDEO TO VIRAL FACEBOOK POST BRIDGE**
-        
-        **INPUTS TO SCAN:**
-        1. **YouTube Video**: ${params.contentUrl} (Watch and analyze this video content for viral insights).
-        2. **User Offer**: "${params.offerName}" - ${params.offerDescription} (Scan this offer details).
-        
-        **GOAL:** 
-        Create a high-converting Viral Facebook Post that extracts value from the video and NATURALLY bridges to the User's Offer.
-        
-        ${specificInstructions}
-        ${selectedPlatformTemplate}
-        
-        **REQUIRED OUTPUT STRUCTURE (Strictly follow these headers):**
-        
-        **SECTION 1: 7 VIRAL HOOKS**
-        - Generate 7 distinct viral hooks (1-2 lines max each).
-        - Format: Hook 1: [Text] ... Hook 7: [Text]
-        - Style: ${params.hookType}.
-        - Must be scroll-stopping.
-        
-        ${imagePromptSection}
-        
-        ${blogSectionPrompt}
-        
-        ${commentSectionPrompt}
-        
-        **SECTION 5: MAIN POST BODY**
-        - **Platform**: Viral Facebook Style (Short paragraphs, engaging, spacing, no jargon).
-        - **Structure**:
-           1. **Hook**: [Use one of the generated hooks].
-           2. **The Lesson**: What we learned from the video.
-           3. **The Bridge**: "This is why I created ${params.offerName}..."
-           4. **CTA**: ${params.offerLink ? `Check it out here: ${params.offerLink}` : 'Link in bio'}.
+  // --- MODE LOGIC ---
 
-        ${instaThreadPrompt}
-        ${tweetSectionPrompt}
-        `;
-        
-        tools = [{ googleSearch: {} }];
+  if (params.style === 'Script-Generator') {
+      promptContext = `
+      **TASK: CREATE YOUTUBE VIDEO SCRIPT**
+      
+      **GOAL:** Create a full viral video script about: ${params.topics.join(', ') || params.contentUrl || 'Business Growth'}.
+      
+      **OFFER CONTEXT:**
+      - Name: ${params.offerName}
+      - Link: ${params.offerLink}
+      
+      **REQUIRED OUTPUT STRUCTURE:**
+      
+      **SECTION 1: VIDEO METADATA (5 TITLES)**
+      - Generate 5 distinct, high-CTR titles.
+      - Thumbnail Idea (High Contrast, Clickbait style matching the niche)
+      
+      **SECTION 5: FULL SCRIPT**
+      - **Hook (0-60s)**: Grab attention, state the problem, promise the solution.
+      - **Intro**: Brief credibility + "In this video...".
+      - **Body**: 3-5 Main Steps/Secrets.
+      - **Bridge**: Natural transition to the offer "${params.offerName}".
+      - **Outro**: CTA to click the link below.
+      
+      ${commentSectionPrompt}
+      ${instaThreadPrompt}
+      ${tweetSectionPrompt}
+      ${strategySection}
+      `;
+      
+      if (params.contentUrl) {
+           tools = [{ googleSearch: {} }]; // Read the URL if provided for the script source
+           promptContext += `\n\n**SOURCE MATERIAL**: Analyze this URL: ${params.contentUrl}`;
+      }
 
-    } else if (params.style === 'Viral-Redo' || params.contentUrl) {
-        // VIRAL LAUNCHPAD MODE (Repurpose Generic)
-        promptContext = `
-        **TASK: VIRAL CONTENT REPURPOSING (LAUNCHPAD MODE)**
-        
-        The user has provided a URL: ${params.contentUrl || 'Analyze the attached image/context'}
-        
-        **GOAL:** Extract the "Viral Gold" from this content and transform it into distinct assets that bridge to the user's offer.
-        
-        ${specificInstructions}
-        ${selectedPlatformTemplate}
-        
-        **REQUIRED OUTPUT STRUCTURE (Strictly follow these headers):**
-        
-        **SECTION 1: 7 VIRAL HOOKS**
-        - Generate 7 distinct viral hooks (1-2 lines max each).
-        - Format: Hook 1: [Text] ... Hook 7: [Text]
-        - Style: ${params.hookType}.
-        
-        ${imagePromptSection}
-        
-        ${blogSectionPrompt}
-        
-        ${commentSectionPrompt}
-        
-        **SECTION 5: MAIN POST BODY**
-        - Create the main content based on the selected platform: ${params.platform}.
-        - Ensure it bridges naturally to the offer.
+  } else if (params.style === 'YouTube-Viral') {
+      // Specific logic for "On YouTube ... scan Offer ... create viral Facebook Posts ... bridge to Offer"
+      promptContext = `
+      **TASK: YOUTUBE VIDEO TO VIRAL FACEBOOK POST BRIDGE**
+      
+      **INPUTS TO SCAN:**
+      1. **YouTube Video**: ${params.contentUrl} (Watch and analyze this video content for viral insights).
+      2. **User Offer**: "${params.offerName}" - ${params.offerDescription} (Scan this offer details).
+      
+      **GOAL:** 
+      Create a high-converting Viral Facebook Post that extracts value from the video and NATURALLY bridges to the User's Offer.
+      
+      ${specificInstructions}
+      ${selectedPlatformTemplate}
+      
+      **REQUIRED OUTPUT STRUCTURE (Strictly follow these headers):**
+      
+      **SECTION 1: 7 VIRAL HOOKS**
+      - Generate 7 distinct viral hooks (1-2 lines max each).
+      - Format: Hook 1: [Text] ... Hook 7: [Text]
+      - Style: ${params.hookType}.
+      - Must be scroll-stopping.
+      
+      ${imagePromptSection}
+      
+      ${blogSectionPrompt}
+      
+      ${commentSectionPrompt}
+      
+      ${mainPostSection}
 
-        ${instaThreadPrompt}
-        ${tweetSectionPrompt}
-        `;
-        
-        // Enable Search to read the URL
-        tools = [{ googleSearch: {} }];
+      ${instaThreadPrompt}
+      ${tweetSectionPrompt}
+      ${strategySection}
+      `;
+      
+      tools = [{ googleSearch: {} }];
 
-    } else {
-        // Standard Generation Mode (CTA / Authority)
-        promptContext = `
-        **TASK: Create Viral Social Media Content**
-        Mode: ${params.style}
-        ${specificInstructions}
-        ${selectedPlatformTemplate}
-        
-        **REQUIRED OUTPUT STRUCTURE:**
-        
-        **SECTION 1: 7 VIRAL HOOKS**
-        - Generate 7 distinct viral hooks (1-2 lines max each).
-        - Format: Hook 1: [Text] ... Hook 7: [Text]
-        - Use the "${params.hookType}" hook style.
-        
-        **SECTION 5: MAIN POST BODY**
-        - Write the full post optimized for ${params.platform}.
-        - Focus on value and authority.
-        
-        ${commentSectionPrompt}
-        
-        ${imagePromptSection}
+  } else if (params.style === 'Viral-Redo' || params.contentUrl) {
+      // VIRAL LAUNCHPAD MODE (Repurpose Generic)
+      promptContext = `
+      **TASK: VIRAL CONTENT REPURPOSING (LAUNCHPAD MODE)**
+      
+      The user has provided a URL: ${params.contentUrl || 'Analyze the attached image/context'}
+      
+      **GOAL:** Extract the "Viral Gold" from this content and transform it into distinct assets that bridge to the user's offer.
+      
+      ${specificInstructions}
+      ${selectedPlatformTemplate}
+      
+      **REQUIRED OUTPUT STRUCTURE (Strictly follow these headers):**
+      
+      **SECTION 1: 7 VIRAL HOOKS**
+      - Generate 7 distinct viral hooks (1-2 lines max each).
+      - Format: Hook 1: [Text] ... Hook 7: [Text]
+      - Style: ${params.hookType}.
+      
+      ${imagePromptSection}
+      
+      ${blogSectionPrompt}
+      
+      ${commentSectionPrompt}
+      
+      ${mainPostSection}
 
-        ${blogSectionPrompt}
+      ${instaThreadPrompt}
+      ${tweetSectionPrompt}
+      ${strategySection}
+      `;
+      
+      // Enable Search to read the URL
+      tools = [{ googleSearch: {} }];
 
-        ${instaThreadPrompt}
-        
-        ${tweetSectionPrompt}
-        `;
-    }
+  } else {
+      // Standard Generation Mode (CTA / Authority)
+      promptContext = `
+      **TASK: Create Viral Social Media Content**
+      Mode: ${params.style}
+      ${specificInstructions}
+      ${selectedPlatformTemplate}
+      
+      **REQUIRED OUTPUT STRUCTURE:**
+      
+      **SECTION 1: 7 VIRAL HOOKS**
+      - Generate 7 distinct viral hooks (1-2 lines max each).
+      - Format: Hook 1: [Text] ... Hook 7: [Text]
+      - Use the "${params.hookType}" hook style.
+      
+      ${mainPostSection}
+      
+      ${commentSectionPrompt}
+      
+      ${imagePromptSection}
 
-    const prompt = `
-    You are GreenNova AI LaunchPad, a world-class viral content engine.
-    ${promptContext}
+      ${blogSectionPrompt}
 
-    **Global Rules:**
-    1. Tone: ${params.style === 'Authority-Building' ? 'Professional, Insightful, Leader' : 'Urgent, Action-Oriented, Exciting'}.
-    2. Readability: Grade 5 level. Short sentences.
-    3. Bridge: Every piece of content must naturally lead to the offer "${params.offerName}".
-    4. Language: ${params.language}.
-    5. **CRITICAL STYLE RULES**:
-       - **NO JARGON**: Use simple, plain words that a 5th grader can understand.
-       - **CLEAN OUTPUT**: Do not use decorative stars (*), excessive dashes (--), or fancy symbols. Keep it clean and readable.
-       - **Clear & Direct**: Avoid fluff. Get straight to the point.
-    
-    Output strictly in Markdown. Use the "SECTION X: TITLE" headers exactly as requested.
-    `;
+      ${instaThreadPrompt}
+      
+      ${tweetSectionPrompt}
 
-    const requestParts: any[] = [{ text: prompt }];
+      ${strategySection}
+      `;
+  }
 
-    // Add image if present
-    if (params.imageContext) {
-      requestParts.unshift({
-        inlineData: {
-          data: params.imageContext.data,
-          mimeType: params.imageContext.mimeType
-        }
-      });
-    }
+  const prompt = `
+  You are the AI-Powered Sustainable Business Launch System, a world-class viral content engine.
+  ${promptContext}
 
-    // Only add tools if explicitly required to avoid errors with empty arrays
-    const config: any = {};
-    if (tools && tools.length > 0) {
-        config.tools = tools;
-    }
+  **Global Rules:**
+  1. Tone: ${params.style === 'Authority-Building' ? 'Professional, Insightful, Leader' : 'Urgent, Action-Oriented, Exciting'}.
+  2. Readability: Grade 5 level. Short sentences.
+  3. Bridge: Every piece of content must naturally lead to the offer "${params.offerName}".
+  4. Language: ${params.language}.
+  5. **Customization and Branding:** "Ensure all generated content aligns perfectly with our brand guidelines, including colors, logos, and tone of voice."
+  6. **CRITICAL STYLE RULES**:
+     - **NO JARGON**: Use simple, plain words that a 5th grader can understand.
+     - **CLEAN OUTPUT**: Do not use decorative stars (*), excessive dashes (--), or fancy symbols unless asked. Keep it clean and readable.
+     - **Clear & Concise**: Avoid fluff. Get straight to the point.
+  
+  Output strictly in Markdown. Use the "SECTION X: TITLE" headers exactly as requested.
+  `;
 
-    const response = await ai.models.generateContent({
+  const requestParts: any[] = [{ text: prompt }];
+
+  // Add image if present
+  if (params.imageContext) {
+    requestParts.unshift({
+      inlineData: {
+        data: params.imageContext.data,
+        mimeType: params.imageContext.mimeType
+      }
+    });
+  }
+
+  // Only add tools if explicitly required to avoid errors with empty arrays
+  const config: any = {};
+  if (tools && tools.length > 0) {
+      config.tools = tools;
+  }
+
+  const response = await ai.models.generateContent({
       model: 'gemini-2.5-flash',
       contents: { parts: requestParts },
       config: config
-    });
-    
-    let text = response.text || "No content generated.";
+  });
 
-    // Append sources if available from search grounding
-    if (response.candidates?.[0]?.groundingMetadata?.groundingChunks) {
-      const chunks = response.candidates[0].groundingMetadata.groundingChunks;
-      const sources = chunks
-        .map((chunk: any) => chunk.web?.uri ? `[${chunk.web.title || 'Source'}](${chunk.web.uri})` : null)
-        .filter(Boolean);
-      
-      const uniqueSources = [...new Set(sources)];
-      if (uniqueSources.length > 0) {
-        text += "\n\n**Sources:**\n" + uniqueSources.join('\n');
-      }
-    }
-
-    return text;
-  } catch (error) {
-    console.error("Text Gen Error:", error);
-    throw error;
-  }
+  return response.text || "";
 };
 
-export const findViralContent = async (niche: string): Promise<string> => {
-  try {
-    const ai = getAIClient();
-    const prompt = `
-      Find trending, high-engagement viral content topics related to "${niche}" from the last 7 days.
-      Focus on YouTube videos, Viral Tweets, or Facebook trends.
-      
-      Output a list of 5 items.
-      **CRITICAL: You MUST output the link in Markdown format: [Title](URL).**
-      
-      Format for each item:
-      1. **Headline**: [Title of the video/post](URL)
-      2. **The Hook**: Why it's going viral.
-      3. **Engagement**: Est. views/likes.
-      
-      Ensure the URL is valid and extractable.
-    `;
-
-    const response = await ai.models.generateContent({
-      model: 'gemini-2.5-flash',
-      contents: prompt,
-      config: {
-        tools: [{ googleSearch: {} }],
-      }
-    });
-    
-    return response.text || "No viral content found.";
-  } catch (error) {
-    console.error("Viral Search Error:", error);
-    throw error;
-  }
-};
-
-export const generateBusinessRoadmap = async (businessType: string): Promise<string> => {
-  try {
-    const ai = getAIClient();
-    const prompt = `Create a detailed step-by-step launch roadmap for a sustainable "${businessType}" business.
-    Include:
-    1. Marketing Strategy
-    2. Recommended AI Tools
-    3. Content Ideas
-    4. Potential Revenue Streams
-    Format as a clean markdown list.
-    **NO JARGON. Keep it clear.**`;
-
-    const response = await ai.models.generateContent({
-      model: 'gemini-2.5-flash',
-      contents: prompt,
-    });
-    return response.text || "No roadmap generated.";
-  } catch (error) {
-    console.error("Roadmap Gen Error:", error);
-    throw error;
-  }
-};
-
-export const generateBlogPost = async (context: string, imageBase64?: string, mimeType?: string): Promise<string> => {
-  try {
-    const ai = getAIClient();
-    const systemInstruction = "You are a world-class content creator. You provide deep value and clear insight. Write for an international audience interested in online business and AI.";
-    
-    const parts: any[] = [{
-        text: `Write a high-impact, viral-style blog post based on this context: "${context}".
-
-        STRICT FORMATTING RULES:
-        1. **HEADING**: Must be at the very top, in **ALL CAPITAL LETTERS**.
-        2. **Meta Description**: Immediately below the heading.
-        3. **Body Content**:
-           - Hook
-           - Problem
-           - Insight/Solution
-           - Action Steps
-           - CTA (Call to Action)
-        
-        **STYLE GUIDELINES**:
-        - **NO JARGON**: Use simple, direct language.
-        - **CLEAN TEXT**: Avoid using asterisks (*), dashes (-), or fancy formatting in the body.
-        - **Clear & Concise**: Keep it easy to read.
-
-        Tone: Professional, motivational, practical.
-        Length: 400-600 words.
-        `
-    }];
-
-    if (imageBase64 && mimeType) {
-        parts.unshift({
-            inlineData: {
-                data: imageBase64,
-                mimeType: mimeType,
-            },
-        });
-    }
-
-    const response = await ai.models.generateContent({
-      model: 'gemini-2.5-flash',
-      contents: { parts },
-      config: { systemInstruction }
-    });
-
-    return response.text || "Failed to generate blog post.";
-  } catch (error) {
-    console.error("Blog Gen Error:", error);
-    throw error;
-  }
-};
-
-export const generateShortsScript = async (topic: string): Promise<string> => {
-  try {
-    const ai = getAIClient();
-    const prompt = `
-      Create a viral 60-second YouTube Shorts script about: "${topic}".
-      
-      Format:
-      [Visual Cue]: Description of visual
-      [Audio]: The spoken script
-      
-      Structure:
-      1. Hook (0-3s): Grab attention immediately.
-      2. Value/Story (3-50s): Deliver the core message or tip.
-      3. CTA (50-60s): Tell them what to do next.
-      
-      Make it punchy, fast-paced, and engaging.
-    `;
-
-    const response = await ai.models.generateContent({
-      model: 'gemini-2.5-flash',
-      contents: prompt,
-    });
-
-    return response.text || "Failed to generate script.";
-  } catch (error) {
-    console.error("Script Gen Error:", error);
-    throw error;
-  }
-};
-
-
-// --- Image Editing (Nano Banana) ---
-export const editImageWithPrompt = async (
-  imageBase64: string,
-  mimeType: string,
-  prompt: string
+// --- Video Meta Generation (Hooks, Captions) ---
+export const generateVideoMeta = async (
+  task: 'hooks' | 'captions' | 'script', 
+  context: string,
+  videoContext?: { data: string, mimeType: string }
 ): Promise<string> => {
-  try {
-    const ai = getAIClient();
-    
-    const response = await ai.models.generateContent({
-      model: 'gemini-2.5-flash-image',
-      contents: {
-        parts: [
-          {
-            inlineData: {
-              data: imageBase64,
-              mimeType: mimeType,
-            },
-          },
-          {
-            text: prompt,
-          },
-        ],
-      },
-      config: {
-        responseModalities: [Modality.IMAGE],
-      },
-    });
-
-    const part = response.candidates?.[0]?.content?.parts?.[0];
-    if (part && part.inlineData && part.inlineData.data) {
-      return `data:image/png;base64,${part.inlineData.data}`;
-    }
-    throw new Error("No image data returned from API");
-  } catch (error) {
-    console.error("Image Edit Error:", error);
-    throw error;
+  const ai = getAIClient();
+  let prompt = "";
+  
+  if (task === 'hooks') {
+    prompt = `Generate 5 viral video hooks (first 3 seconds) for a video about: "${context}".
+    ${videoContext ? 'Analyze the visual and audio context of the attached video to make the hooks relevant to what is happening on screen.' : ''}
+    Style: Controversial, Pattern Interrupt, or Curiosity Gap.
+    Format: Bullet points.`;
+  } else if (task === 'captions') {
+    prompt = `Write a viral social media caption for this video context: "${context}".
+    ${videoContext ? 'Analyze the visual and audio context of the attached video.' : ''}
+    Include: Hook line, short body value, and Call to Action.
+    Platform: Instagram Reels / TikTok.`;
+  } else if (task === 'script') {
+    prompt = `Write a 60-second video script based on this context: "${context}".
+    ${videoContext ? 'CRITICAL: Watch the attached video. Write a voiceover script or improved content script that matches the visual flow of the video provided.' : ''}
+    Structure: Hook (0-3s), Retain (3-15s), Value (15-45s), CTA (45-60s).`;
   }
+
+  const parts: any[] = [{ text: prompt }];
+  if (videoContext) {
+      parts.unshift({
+          inlineData: {
+              data: videoContext.data,
+              mimeType: videoContext.mimeType
+          }
+      });
+  }
+
+  const response = await ai.models.generateContent({
+    model: 'gemini-2.5-flash',
+    contents: { parts }
+  });
+
+  return response.text || "";
 };
 
-// --- Image Generation (Imagen) ---
-export const generateImage = async (prompt: string, aspectRatio: string = '1:1'): Promise<string> => {
-  try {
+// --- Transcribe Audio ---
+export const transcribeAudio = async (audioBase64: string, mimeType: string = 'audio/wav'): Promise<string> => {
+  const ai = getAIClient();
+  const response = await ai.models.generateContent({
+    model: 'gemini-2.5-flash',
+    contents: {
+      parts: [
+        {
+          inlineData: {
+            data: audioBase64,
+            mimeType: mimeType
+          }
+        },
+        { text: "Transcribe this audio exactly. Do not add any other text." }
+      ]
+    }
+  });
+  return response.text || "";
+};
+
+// --- Image Generation ---
+export const generateImage = async (prompt: string, aspectRatio: string = "1:1"): Promise<string> => {
     const ai = getAIClient();
-    
     const response = await ai.models.generateImages({
-      model: 'imagen-4.0-generate-001',
-      prompt: prompt,
-      config: {
-        numberOfImages: 1,
-        aspectRatio: aspectRatio as any,
-        outputMimeType: 'image/jpeg',
-      },
-    });
-
-    const base64ImageBytes = response.generatedImages?.[0]?.image?.imageBytes;
-    if (!base64ImageBytes) {
-      throw new Error("No image generated.");
-    }
-    return `data:image/jpeg;base64,${base64ImageBytes}`;
-  } catch (error) {
-    console.error("Image Gen Error:", error);
-    throw error;
-  }
-};
-
-// --- Image Generation (Nano Banana) ---
-export const generateImageNano = async (prompt: string): Promise<string> => {
-  try {
-    const ai = getAIClient();
-    const response = await ai.models.generateContent({
-      model: 'gemini-2.5-flash-image',
-      contents: {
-        parts: [{ text: prompt }],
-      },
-      config: {
-        imageConfig: {
-          aspectRatio: "1:1",
+        model: 'imagen-4.0-generate-001',
+        prompt: prompt,
+        config: {
+            numberOfImages: 1,
+            aspectRatio: aspectRatio,
+            outputMimeType: 'image/jpeg'
         }
-      },
     });
-
-    for (const part of response.candidates?.[0]?.content?.parts || []) {
-      if (part.inlineData && part.inlineData.data) {
-        return `data:image/png;base64,${part.inlineData.data}`;
-      }
+    
+    // Check if response has generatedImages and it's not empty
+    if (response.generatedImages && response.generatedImages.length > 0) {
+        const base64EncodeString: string = response.generatedImages[0].image.imageBytes;
+        return `data:image/jpeg;base64,${base64EncodeString}`;
     }
-    throw new Error("No image generated by Nano Banana model");
-  } catch (error) {
-    console.error("Nano Image Gen Error:", error);
-    throw error;
-  }
+    throw new Error("No image generated");
 };
 
-// --- Image Generation (Nano Banana Pro / Gemini 3 Pro) ---
-// Used for High-Quality tasks and better text rendering within images
-export const generateImageNanoPro = async (prompt: string, aspectRatio: string = '1:1', imageContext?: { data: string, mimeType: string }): Promise<string> => {
-  try {
+export const generateImageNano = async (prompt: string, imageContext?: {data: string, mimeType: string}): Promise<string> => {
     const ai = getAIClient();
     
     const parts: any[] = [{ text: prompt }];
-
-    // If image context provided (e.g. profile photo for authority posts), add it
     if (imageContext) {
         parts.unshift({
             inlineData: {
@@ -632,128 +524,326 @@ export const generateImageNanoPro = async (prompt: string, aspectRatio: string =
     }
 
     const response = await ai.models.generateContent({
-      model: 'gemini-3-pro-image-preview', // Nano Banana Pro
-      contents: { parts },
-      config: {
-        imageConfig: {
-          aspectRatio: aspectRatio as any,
-          imageSize: "1K"
-        }
-      },
+        model: 'gemini-2.5-flash-image',
+        contents: { parts }
     });
-
-    for (const part of response.candidates?.[0]?.content?.parts || []) {
-      if (part.inlineData && part.inlineData.data) {
-        return `data:image/png;base64,${part.inlineData.data}`;
-      }
+    
+    // Find image part
+    if (response.candidates && response.candidates[0].content.parts) {
+        for (const part of response.candidates[0].content.parts) {
+            if (part.inlineData) {
+                return `data:${part.inlineData.mimeType};base64,${part.inlineData.data}`;
+            }
+        }
     }
-    throw new Error("No image generated by Nano Banana Pro model");
-  } catch (error) {
-    console.error("Nano Pro Image Gen Error:", error);
-    throw error;
-  }
+    throw new Error("No image generated by Nano");
 };
 
-// --- Text to Speech ---
-export const generateSpeech = async (text: string, voiceName: string = 'Kore'): Promise<string> => {
-  try {
+export const generateImageNanoPro = async (prompt: string, aspectRatio: string = "1:1", imageContext?: {data: string, mimeType: string}): Promise<string> => {
+    const ai = getAIClient();
+    
+    const parts: any[] = [{ text: prompt }];
+    if (imageContext) {
+        parts.unshift({
+            inlineData: {
+                data: imageContext.data,
+                mimeType: imageContext.mimeType
+            }
+        });
+    }
+
+    const response = await ai.models.generateContent({
+        model: 'gemini-3-pro-image-preview',
+        contents: { parts },
+        config: {
+            imageConfig: {
+                aspectRatio: aspectRatio,
+                imageSize: "1K"
+            }
+        }
+    });
+    
+    if (response.candidates && response.candidates[0].content.parts) {
+        for (const part of response.candidates[0].content.parts) {
+            if (part.inlineData) {
+                return `data:${part.inlineData.mimeType};base64,${part.inlineData.data}`;
+            }
+        }
+    }
+    throw new Error("No image generated by Nano Pro");
+};
+
+// --- Face Fusion / Multi-Image Generation ---
+export const generateFaceFusion = async (images: {data: string, mimeType: string}[], prompt: string): Promise<string> => {
+    const ai = getAIClient();
+    const parts: any[] = [];
+    
+    // Add all images as inlineData parts
+    images.forEach(img => {
+        parts.push({
+            inlineData: {
+                data: img.data,
+                mimeType: img.mimeType
+            }
+        });
+    });
+
+    // Add prompt
+    parts.push({ text: prompt });
+
+    const response = await ai.models.generateContent({
+        model: 'gemini-3-pro-image-preview',
+        contents: { parts },
+        config: {
+            imageConfig: {
+                aspectRatio: "1:1",
+                imageSize: "1K"
+            }
+        }
+    });
+
+    if (response.candidates && response.candidates[0].content.parts) {
+        for (const part of response.candidates[0].content.parts) {
+            if (part.inlineData) {
+                return `data:${part.inlineData.mimeType};base64,${part.inlineData.data}`;
+            }
+        }
+    }
+    throw new Error("No image generated");
+};
+
+export const generateFaceFusionNano = async (images: {data: string, mimeType: string}[], prompt: string): Promise<string> => {
+    const ai = getAIClient();
+    const parts: any[] = [];
+    
+    // Add all images as inlineData parts
+    images.forEach(img => {
+        parts.push({
+            inlineData: {
+                data: img.data,
+                mimeType: img.mimeType
+            }
+        });
+    });
+
+    // Add prompt
+    parts.push({ text: prompt });
+
+    const response = await ai.models.generateContent({
+        model: 'gemini-2.5-flash-image',
+        contents: { parts },
+        // No imageConfig for flash-image typically.
+    });
+
+    if (response.candidates && response.candidates[0].content.parts) {
+        for (const part of response.candidates[0].content.parts) {
+            if (part.inlineData) {
+                return `data:${part.inlineData.mimeType};base64,${part.inlineData.data}`;
+            }
+        }
+    }
+    throw new Error("No image generated by Nano");
+};
+
+export const editImageWithPrompt = async (base64Data: string, mimeType: string, prompt: string): Promise<string> => {
     const ai = getAIClient();
     const response = await ai.models.generateContent({
-      model: 'gemini-2.5-flash-preview-tts',
-      contents: [{ parts: [{ text }] }],
-      config: {
-        responseModalities: [Modality.AUDIO],
-        speechConfig: {
-          voiceConfig: {
-            prebuiltVoiceConfig: { voiceName: voiceName },
-          },
-        },
-      },
+        model: 'gemini-2.5-flash-image',
+        contents: {
+            parts: [
+                {
+                    inlineData: {
+                        data: base64Data,
+                        mimeType: mimeType
+                    }
+                },
+                { text: prompt }
+            ]
+        }
     });
-
-    const base64Audio = response.candidates?.[0]?.content?.parts?.[0]?.inlineData?.data;
-    if (!base64Audio) {
-      throw new Error("No audio data returned.");
+    
+    if (response.candidates && response.candidates[0].content.parts) {
+        for (const part of response.candidates[0].content.parts) {
+            if (part.inlineData) {
+                return `data:${part.inlineData.mimeType};base64,${part.inlineData.data}`;
+            }
+        }
     }
-    return base64Audio;
-  } catch (error) {
-    console.error("TTS Error:", error);
-    throw error;
-  }
+    throw new Error("No edited image generated");
 };
 
-// --- Video Generation (Veo) ---
+// --- Video Generation ---
 export interface VideoGenerationParams {
-  prompt: string;
-  image?: {
-    data: string; // base64
-    mimeType: string;
-  };
-  aspectRatio: '16:9' | '9:16';
-  resolution: '720p' | '1080p';
+    prompt: string;
+    aspectRatio?: '16:9' | '9:16';
+    resolution?: '720p' | '1080p';
+    image?: { data: string, mimeType: string };
 }
 
 export const generateVideo = async (params: VideoGenerationParams): Promise<string> => {
-  try {
     const ai = getAIClient();
-
-    const args: any = {
-      model: 'veo-3.1-fast-generate-preview', // Using fast model for interactive experience
-      prompt: params.prompt,
-      config: {
-        numberOfVideos: 1,
-        resolution: params.resolution,
-        aspectRatio: params.aspectRatio,
-      }
-    };
-
-    if (params.image) {
-      args.image = {
-        imageBytes: params.image.data,
-        mimeType: params.image.mimeType
-      };
-    }
-
-    let operation = await ai.models.generateVideos(args);
-
-    // Poll for completion
-    while (!operation.done) {
-      await new Promise(resolve => setTimeout(resolve, 5000)); // 5s interval
-      operation = await ai.operations.getVideosOperation({ operation });
-    }
-
-    const videoUri = operation.response?.generatedVideos?.[0]?.video?.uri;
-    if (!videoUri) {
-      throw new Error("No video URI returned.");
-    }
-
-    // Fetch video bytes - Requires API Key in URL
-    const downloadUrl = `${videoUri}&key=${process.env.API_KEY}`;
-    const response = await fetch(downloadUrl);
     
-    if (!response.ok) {
-      throw new Error(`Failed to download video: ${response.statusText}`);
-    }
+    const model = 'veo-3.1-fast-generate-preview';
     
-    const blob = await response.blob();
-    return URL.createObjectURL(blob);
-
-  } catch (error) {
-    console.error("Video Generation Error:", error);
-    throw error;
-  }
-};
-// --- Animate Image with Grok AI (via Veo) ---
-export const animateImageWithGrok = async (
-  imageBase64: string,
-  mimeType: string,
-  prompt: string
-): Promise<string> => {
-    // This is a semantic wrapper around generateVideo for the "Grok" feature requirement
-    return generateVideo({
-        prompt: prompt || "Animate this image cinematically, subtle motion, high quality",
-        image: { data: imageBase64, mimeType },
-        aspectRatio: '16:9',
-        resolution: '720p'
+    let operation = await ai.models.generateVideos({
+        model: model,
+        prompt: params.prompt,
+        image: params.image ? {
+            imageBytes: params.image.data,
+            mimeType: params.image.mimeType
+        } : undefined,
+        config: {
+            numberOfVideos: 1,
+            resolution: params.resolution || '720p',
+            aspectRatio: params.aspectRatio || '9:16'
+        }
     });
+
+    while (!operation.done) {
+        await new Promise(resolve => setTimeout(resolve, 5000));
+        operation = await ai.operations.getVideosOperation({operation: operation});
+    }
+
+    if (operation.response && operation.response.generatedVideos && operation.response.generatedVideos.length > 0) {
+        const videoUri = operation.response.generatedVideos[0].video.uri;
+        const apiKey = process.env.API_KEY;
+        const videoUrl = `${videoUri}&key=${apiKey}`;
+        return videoUrl;
+    }
+    throw new Error("Video generation failed");
+};
+
+export const generateVideoFromImages = async (images: {data: string, mimeType: string}[], prompt: string): Promise<string> => {
+    const ai = getAIClient();
+    
+    // Limit to 3 images as per guidelines for multi-reference
+    const refs = images.slice(0, 3).map(img => ({
+        image: {
+            imageBytes: img.data,
+            mimeType: img.mimeType
+        },
+        referenceType: VideoGenerationReferenceType.ASSET
+    }));
+
+    let operation = await ai.models.generateVideos({
+        model: 'veo-3.1-generate-preview',
+        prompt: prompt || "Animate these characters",
+        config: {
+            numberOfVideos: 1,
+            referenceImages: refs,
+            resolution: '720p',
+            aspectRatio: '16:9'
+        }
+    });
+
+    while (!operation.done) {
+        await new Promise(resolve => setTimeout(resolve, 5000));
+        operation = await ai.operations.getVideosOperation({operation: operation});
+    }
+
+    if (operation.response && operation.response.generatedVideos && operation.response.generatedVideos.length > 0) {
+        const videoUri = operation.response.generatedVideos[0].video.uri;
+        const apiKey = process.env.API_KEY;
+        const videoUrl = `${videoUri}&key=${apiKey}`;
+        return videoUrl;
+    }
+    throw new Error("Video generation failed");
+};
+
+// --- Speech Generation ---
+export const generateSpeech = async (text: string, voiceName: string = 'Kore'): Promise<string> => {
+    const ai = getAIClient();
+    const response = await ai.models.generateContent({
+        model: "gemini-2.5-flash-preview-tts",
+        contents: [{ parts: [{ text: text }] }],
+        config: {
+            responseModalities: [Modality.AUDIO],
+            speechConfig: {
+                voiceConfig: {
+                    prebuiltVoiceConfig: { voiceName: voiceName }
+                }
+            }
+        }
+    });
+    
+    if (response.candidates && response.candidates[0].content.parts && response.candidates[0].content.parts[0].inlineData) {
+        return response.candidates[0].content.parts[0].inlineData.data;
+    }
+    throw new Error("Speech generation failed");
+};
+
+// --- Other Services ---
+export const findViralContent = async (niche: string): Promise<string> => {
+    const ai = getAIClient();
+    const response = await ai.models.generateContent({
+        model: 'gemini-2.5-flash',
+        contents: `Find 5 currently viral and trending topics, articles, or videos related to "${niche}". 
+        For each, provide the Title and a direct URL. 
+        Focus on content that has high engagement or is "breaking news" in this niche.`,
+        config: {
+            tools: [{ googleSearch: {} }]
+        }
+    });
+    return response.text || "No results found.";
+};
+
+export const generateBlogPost = async (topic: string, imageBase64?: string, imageMime?: string): Promise<string> => {
+    const ai = getAIClient();
+    const parts: any[] = [{ text: `Write a high-quality, engaging blog post about: ${topic}. Structure it with a catchy title, introduction, main body points, and conclusion. Keep it under 500 words.` }];
+    
+    if (imageBase64 && imageMime) {
+        parts.unshift({
+            inlineData: {
+                data: imageBase64,
+                mimeType: imageMime
+            }
+        });
+        parts[1].text = `Write a blog post based on this image and the topic: ${topic}.`;
+    }
+
+    const response = await ai.models.generateContent({
+        model: 'gemini-2.5-flash',
+        contents: { parts }
+    });
+
+    return response.text || "";
+};
+
+export const generateBusinessRoadmap = async (businessType: string): Promise<string> => {
+    const ai = getAIClient();
+    const response = await ai.models.generateContent({
+        model: 'gemini-3-pro-preview',
+        contents: `Create a detailed step-by-step launch roadmap for a "${businessType}" business. Include phases for Research, Setup, Marketing, and Launch. Use Markdown formatting.`
+    });
+    return response.text || "";
+};
+
+export const analyzeSubscription = async (userData: any): Promise<any> => {
+    const ai = getAIClient();
+    const prompt = `
+    Analyze this user subscription data and provide retention insights.
+    User Data: ${JSON.stringify(userData)}
+    
+    Return a JSON object with:
+    1. cancellation_risk (0-100 integer)
+    2. renewal_action (string, advice)
+    3. plan_change (string, e.g. "Stay on Monthly" or "Upgrade to Annual")
+    4. message_template (string, personalized email snippet)
+    5. priority_score (0-10 integer)
+    `;
+
+    const response = await ai.models.generateContent({
+        model: 'gemini-3-pro-preview',
+        contents: prompt,
+        config: {
+            responseMimeType: 'application/json'
+        }
+    });
+
+    try {
+        return JSON.parse(response.text || "{}");
+    } catch (e) {
+        console.error("Failed to parse JSON", e);
+        return { cancellation_risk: 0, renewal_action: "Error", plan_change: "None", message_template: "Error", priority_score: 0 };
+    }
 };

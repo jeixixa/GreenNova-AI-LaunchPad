@@ -1,8 +1,9 @@
+
 import React, { useState, useRef, useEffect } from 'react';
-import { generateSpeech } from '../services/geminiService';
+import { generateSpeech, transcribeAudio } from '../services/geminiService';
 import { saveItem } from '../services/storageService';
 import { decodeBase64, decodeAudioData, playAudioBuffer, createWavBlob } from '../services/audioUtils';
-import { Loader2, Mic, Play, Pause, Bookmark, Check, User, Upload, X, Plus, FileAudio, Sliders, Radio, Square, Trash2 } from 'lucide-react';
+import { Loader2, Mic, Play, Pause, Bookmark, Check, User, Upload, X, Plus, FileAudio, Sliders, Radio, Square, Trash2, FileText } from 'lucide-react';
 
 interface Voice {
     id: string;
@@ -31,7 +32,10 @@ const AudioStudio: React.FC = () => {
   const [audioBuffer, setAudioBuffer] = useState<AudioBuffer | null>(null);
   const [rawAudio, setRawAudio] = useState<Uint8Array | null>(null);
   const [saved, setSaved] = useState(false);
+  const [isTranscribing, setIsTranscribing] = useState(false);
+  
   const sourceNodeRef = useRef<AudioBufferSourceNode | null>(null);
+  const mainFileInputRef = useRef<HTMLInputElement>(null);
 
   // Cloning Modal State
   const [isCloneModalOpen, setIsCloneModalOpen] = useState(false);
@@ -47,14 +51,36 @@ const AudioStudio: React.FC = () => {
   const chunksRef = useRef<Blob[]>([]);
   const timerRef = useRef<number | null>(null);
 
-  // Initialize Audio Context on mount
+  // Initialize Audio Context on mount and Load Auto-Saved Data
   useEffect(() => {
     const ctx = new (window.AudioContext || (window as any).webkitAudioContext)({sampleRate: 24000});
     setAudioContext(ctx);
+    
+    // Auto Load
+    const savedData = localStorage.getItem('sbl_autosave_audio_script');
+    if (savedData) {
+        try {
+            const parsed = JSON.parse(savedData);
+            if (typeof parsed === 'string') {
+                setText(parsed);
+            } else {
+                if (parsed.text) setText(parsed.text);
+                if (parsed.selectedVoice) setSelectedVoice(parsed.selectedVoice);
+            }
+        } catch(e) {
+            setText(savedData); // Fallback
+        }
+    }
+
     return () => {
       ctx.close();
     };
   }, []);
+
+  // Auto Save
+  useEffect(() => {
+      localStorage.setItem('sbl_autosave_audio_script', JSON.stringify({ text, selectedVoice }));
+  }, [text, selectedVoice]);
 
   const getDeterministicVoice = (name: string) => {
     const standardVoices = INITIAL_VOICES.filter(v => !v.isCustom);
@@ -106,6 +132,57 @@ const AudioStudio: React.FC = () => {
     }
   };
 
+  const handleMainFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+      const file = e.target.files?.[0];
+      if (!file || !audioContext) return;
+
+      try {
+          const arrayBuffer = await file.arrayBuffer();
+          // decodeAudioData resamples to context sampleRate (24000)
+          const decodedBuffer = await audioContext.decodeAudioData(arrayBuffer);
+          setAudioBuffer(decodedBuffer);
+          
+          // Convert to Int16 PCM for consistency with rawAudio expectation (for saving)
+          const channelData = decodedBuffer.getChannelData(0); // Take first channel (mono)
+          const pcmInt16 = new Int16Array(channelData.length);
+          for (let i = 0; i < channelData.length; i++) {
+              // Clamp and scale
+              const s = Math.max(-1, Math.min(1, channelData[i]));
+              pcmInt16[i] = s < 0 ? s * 0x8000 : s * 0x7FFF;
+          }
+          setRawAudio(new Uint8Array(pcmInt16.buffer));
+
+          // Auto play
+          playBuffer(decodedBuffer);
+          
+          // Clear file input
+          if (mainFileInputRef.current) mainFileInputRef.current.value = '';
+      } catch (err) {
+          console.error("Error decoding audio file", err);
+          alert("Failed to load audio file. Please try a different format (WAV/MP3).");
+      }
+  };
+
+  const handleTranscribeAudio = async () => {
+      if (!rawAudio) return;
+      setIsTranscribing(true);
+      try {
+          const wavBlob = createWavBlob(rawAudio);
+          const reader = new FileReader();
+          reader.onloadend = async () => {
+              const base64 = (reader.result as string).split(',')[1];
+              const transcript = await transcribeAudio(base64, 'audio/wav');
+              if (transcript) setText(prev => prev ? prev + '\n' + transcript : transcript);
+          };
+          reader.readAsDataURL(wavBlob);
+      } catch (error) {
+          console.error("Transcription failed", error);
+          alert("Failed to transcribe audio.");
+      } finally {
+          setIsTranscribing(false);
+      }
+  };
+
   const playBuffer = (buffer: AudioBuffer) => {
     if (!audioContext) return;
     
@@ -145,10 +222,11 @@ const AudioStudio: React.FC = () => {
         reader.onloadend = () => {
             const base64Wav = reader.result as string;
             const selectedVoiceName = voices.find(v => v.id === selectedVoice)?.name || selectedVoice;
+            const title = text ? `Audio (${selectedVoiceName}): ${text.substring(0, 20)}...` : `Uploaded Audio ${new Date().toLocaleTimeString()}`;
             const success = saveItem({
                 type: 'Audio',
                 content: base64Wav,
-                title: `Audio (${selectedVoiceName}): ${text.substring(0, 20)}...`,
+                title: title,
             });
             if (success) {
                 setSaved(true);
@@ -248,11 +326,11 @@ const AudioStudio: React.FC = () => {
       <div className="mb-8 flex justify-between items-end">
         <div>
             <h1 className="text-3xl font-serif font-bold text-gray-900 dark:text-white">Audio Studio</h1>
-            <p className="text-gray-500 dark:text-gray-400 mt-1">Convert your business content into professional speech.</p>
+            <p className="text-gray-500 dark:text-gray-400 mt-1">Convert your business content into professional speech or manage your audio assets.</p>
         </div>
         <button 
             onClick={() => setIsCloneModalOpen(true)}
-            className="hidden md:flex items-center gap-2 bg-brand-600 text-white px-4 py-2 rounded-lg font-bold text-sm hover:bg-brand-500 transition-colors shadow-glow-sm"
+            className="hidden md:flex items-center gap-2 bg-brand-600 text-white px-4 py-2 rounded-lg font-bold text-sm hover:bg-brand-50 transition-colors shadow-glow-sm"
         >
             <Plus className="w-4 h-4" />
             Clone New Voice
@@ -348,15 +426,31 @@ const AudioStudio: React.FC = () => {
                     className="w-full p-4 border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900 dark:text-white rounded-xl focus:ring-2 focus:ring-brand-500 outline-none flex-1 resize-none font-mono text-sm leading-relaxed"
                 />
                 
-                <div className="mt-6 flex justify-end">
+                <div className="mt-6 flex justify-end gap-3">
+                    <input 
+                        type="file" 
+                        ref={mainFileInputRef}
+                        onChange={handleMainFileUpload}
+                        accept="audio/*"
+                        className="hidden"
+                    />
+                    <button
+                        onClick={() => mainFileInputRef.current?.click()}
+                        className="py-3 px-4 rounded-xl font-bold bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors flex items-center"
+                        title="Upload Audio File for Playback or Transcription"
+                    >
+                        <Upload className="w-5 h-5 mr-2" />
+                        Upload Audio
+                    </button>
+                    
                     <button
                         onClick={handleGenerate}
                         disabled={loading || !text}
                         className={`
-                            py-3 px-8 rounded-xl font-bold flex items-center shadow-lg transition-all
+                            py-3 px-8 rounded-xl font-bold flex items-center shadow-lg transition-all border-2 border-transparent
                             ${loading || !text 
                                 ? 'bg-gray-300 dark:bg-gray-600 cursor-not-allowed text-gray-500' 
-                                : 'bg-brand-600 text-white hover:bg-brand-700 hover:scale-[1.02] shadow-brand-200'}
+                                : 'bg-brand-900 text-white hover:bg-brand-800 border-brand-700 hover:scale-[1.02] shadow-brand-900/20'}
                         `}
                     >
                         {loading ? <Loader2 className="animate-spin w-5 h-5 mr-2" /> : <Mic className="w-5 h-5 mr-2" />}
@@ -379,9 +473,9 @@ const AudioStudio: React.FC = () => {
                             {isPlaying ? <Pause className="w-6 h-6 fill-current" /> : <Play className="w-6 h-6 fill-current ml-1" />}
                         </button>
                         <div className="min-w-0 flex-1">
-                            <h3 className="font-bold text-white text-lg truncate">Generated Output</h3>
+                            <h3 className="font-bold text-white text-lg truncate">{text ? 'Generated Output' : 'Audio Playback'}</h3>
                             <div className="flex items-center text-xs text-gray-400 gap-3">
-                                <span className="flex items-center"><User className="w-3 h-3 mr-1" /> {voices.find(v => v.id === selectedVoice)?.name || selectedVoice}</span>
+                                <span className="flex items-center"><User className="w-3 h-3 mr-1" /> {text ? (voices.find(v => v.id === selectedVoice)?.name || selectedVoice) : 'Uploaded File'}</span>
                                 <span className="w-1 h-1 bg-gray-600 rounded-full"></span>
                                 <span>{audioBuffer ? `${audioBuffer.duration.toFixed(1)}s` : '--:--'}</span>
                             </div>
@@ -389,6 +483,17 @@ const AudioStudio: React.FC = () => {
                     </div>
                     
                     <div className="flex items-center gap-3 w-full sm:w-auto justify-end">
+                        {audioBuffer && (
+                             <button 
+                                onClick={handleTranscribeAudio}
+                                disabled={isTranscribing}
+                                className="flex items-center text-xs font-bold bg-white/10 hover:bg-white/20 text-white px-4 py-2.5 rounded-lg transition-colors border border-white/10"
+                                title="Convert audio to text (Free)"
+                            >
+                                {isTranscribing ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <FileText className="w-4 h-4 mr-2" />}
+                                Transcribe
+                            </button>
+                        )}
                         {audioBuffer && (
                             <button 
                                 onClick={handleSave}
@@ -411,7 +516,7 @@ const AudioStudio: React.FC = () => {
                 <div className="p-6 border-b border-gray-100 dark:border-gray-700 flex justify-between items-center bg-gray-50 dark:bg-gray-800">
                     <h2 className="text-xl font-bold text-gray-900 dark:text-white flex items-center">
                         <Mic className="w-5 h-5 mr-2 text-purple-600" />
-                        Clone Your Voice
+                        Clone Your Voice (Beta)
                     </h2>
                     <button onClick={() => setIsCloneModalOpen(false)} className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200">
                         <X className="w-5 h-5" />
@@ -420,9 +525,9 @@ const AudioStudio: React.FC = () => {
 
                 <div className="p-6 space-y-6 overflow-y-auto">
                     <div className="bg-purple-50 dark:bg-purple-900/20 p-4 rounded-lg border border-purple-100 dark:border-purple-800">
-                        <h4 className="font-bold text-purple-900 dark:text-purple-200 text-sm mb-1">🎙️ How it works</h4>
+                        <h4 className="font-bold text-purple-900 dark:text-purple-200 text-sm mb-1">🎙️ Free Feature</h4>
                         <p className="text-xs text-purple-700 dark:text-purple-300 leading-relaxed">
-                            Upload audio files or record directly. Our AI analyzes tone, pitch, and cadence to create a digital replica.
+                            Upload audio files or record directly. Our AI analyzes tone, pitch, and cadence to create a digital replica for free.
                         </p>
                     </div>
 

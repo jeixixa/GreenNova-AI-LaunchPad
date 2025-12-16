@@ -1,25 +1,33 @@
+
 import { SavedItem } from '../types';
 
 // Pricing for each tier (in USD)
 export const TIER_PRICES = {
-  pro: "29.99",
-  agency: "99.99",
+  pro: "5.00",
+  agency: "99.00",
 } as const;
 
 // Helper to safely access env vars without crashing at module load time
 const getEnvConfig = () => {
+    // Reverting to the previous known valid credentials and ensuring no trailing spaces
+    const DEFAULT_CONFIG = {
+        mode: "sandbox",
+        clientId: "AXF6EK8pbdt8cv7YrPxy6qzhvo5CW-ue07t56LQHHZhkamllUSRLRqPENg7DqfYZvK8mm9tXP5wWR-eZ",
+        clientSecret: "EH-s6iH37myVMmk7VMkSkQ8Td1ztogz0G1XLzDoY7aOOgQN3V7vTXsOmwAisz8C4OdAKk4mE4JBfIQUx"
+    };
+
     try {
         if (typeof process !== 'undefined' && process.env) {
             return {
-                mode: process.env.PAYPAL_MODE || "sandbox",
-                clientId: process.env.PAYPAL_CLIENT_ID || "",
-                clientSecret: process.env.PAYPAL_CLIENT_SECRET || ""
+                mode: (process.env.PAYPAL_MODE || DEFAULT_CONFIG.mode).trim(),
+                clientId: (process.env.PAYPAL_CLIENT_ID || DEFAULT_CONFIG.clientId).trim(),
+                clientSecret: (process.env.PAYPAL_CLIENT_SECRET || DEFAULT_CONFIG.clientSecret).trim()
             };
         }
     } catch (e) {
         // Ignore error
     }
-    return { mode: "sandbox", clientId: "", clientSecret: "" };
+    return DEFAULT_CONFIG;
 };
 
 const getBaseUrl = () => {
@@ -37,7 +45,7 @@ async function getAccessToken(): Promise<string> {
   
   if (!config.clientId || !config.clientSecret) {
     throw new Error(
-      "PayPal credentials not configured. Please add PAYPAL_CLIENT_ID and PAYPAL_CLIENT_SECRET to your environment variables."
+      "PayPal credentials not configured."
     );
   }
 
@@ -55,6 +63,7 @@ async function getAccessToken(): Promise<string> {
 
   if (!response.ok) {
       const err = await response.json().catch(() => ({}));
+      console.error("PayPal Auth Failed:", err);
       throw new Error(`Failed to authenticate with PayPal: ${err.error_description || response.statusText}`);
   }
 
@@ -82,12 +91,12 @@ export async function createPayPalOrder(tier: "pro" | "agency", userId: string) 
           currency_code: "USD",
           value: amount,
         },
-        description: `GreenNova Monetizer™ - ${tier.charAt(0).toUpperCase() + tier.slice(1)} Plan`,
+        description: `SBL System Monetizer™ - ${tier.charAt(0).toUpperCase() + tier.slice(1)} Plan`,
         custom_id: userId,
       },
     ],
     application_context: {
-      brand_name: "GreenNova Monetizer™",
+      brand_name: "SBL System Monetizer™",
       landing_page: "BILLING",
       user_action: "PAY_NOW",
       return_url: returnUrl,

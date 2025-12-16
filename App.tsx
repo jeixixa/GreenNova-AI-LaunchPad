@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import Sidebar from './components/Sidebar';
 import Dashboard from './components/Dashboard';
@@ -11,19 +12,29 @@ import StudioJames from './components/StudioJames';
 import LandingPage from './components/LandingPage';
 import Account from './components/Account';
 import ViralSearch from './components/ViralSearch';
+import Scheduler from './components/Scheduler';
 import Settings from './components/Settings';
+import FaceFusion from './components/FaceFusion';
+import AuthorityGenerator from './components/AuthorityGenerator';
+import FreeVideoGenerator from './components/FreeVideoGenerator';
+import AdminDashboard from './components/AdminDashboard';
 import { View } from './types';
 import { Menu, X } from 'lucide-react';
 
 function App() {
-  const [showLandingPage, setShowLandingPage] = useState(true);
+  // Initialize based on whether user has previously logged in
+  const [showLandingPage, setShowLandingPage] = useState(() => {
+      // Check if user email is stored
+      return !localStorage.getItem('sbl_user_email');
+  });
+  
   const [currentView, setCurrentView] = useState<View>(View.VIRAL_GENERATOR); 
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   
   // Initialize theme from localStorage or default to dark
   const [theme, setTheme] = useState<'light' | 'dark'>(() => {
       if (typeof window !== 'undefined') {
-          const saved = localStorage.getItem('gn_theme');
+          const saved = localStorage.getItem('sbl_theme');
           if (saved === 'light' || saved === 'dark') return saved;
       }
       return 'dark';
@@ -37,7 +48,7 @@ function App() {
     } else {
       root.classList.remove('dark');
     }
-    localStorage.setItem('gn_theme', theme);
+    localStorage.setItem('sbl_theme', theme);
 
     // Check for PayPal return params
     const params = new URLSearchParams(window.location.search);
@@ -46,6 +57,13 @@ function App() {
         setCurrentView(View.ACCOUNT);
     }
   }, [theme]);
+
+  const handleLogout = () => {
+      // Clear session data
+      localStorage.removeItem('sbl_user_email');
+      localStorage.removeItem('sbl_admin_auth');
+      setShowLandingPage(true);
+  };
 
   const renderView = () => {
     switch (currentView) {
@@ -59,16 +77,26 @@ function App() {
         return <AudioStudio />;
       case View.VIDEO_MAKER:
         return <VideoMaker />;
+      case View.FREE_VIDEO_GENERATOR:
+        return <FreeVideoGenerator />;
+      case View.AUTHORITY_GENERATOR:
+        return <AuthorityGenerator />;
       case View.IMAGE_GENERATOR:
         return <ImageStudio />;
+      case View.FACE_FUSION:
+        return <FaceFusion />;
       case View.POST_TEMPLATES:
          return <PostTemplates />;
       case View.STUDIO_JAMES:
          return <StudioJames />;
       case View.SAVED_POSTS:
          return <SavedPosts />;
+      case View.SCHEDULER:
+         return <Scheduler />;
+      case View.ADMIN:
+         return <AdminDashboard />;
       case View.ACCOUNT:
-         return <Account onNavigate={setCurrentView} onLogout={() => setShowLandingPage(true)} />;
+         return <Account onNavigate={setCurrentView} onLogout={handleLogout} />;
       case View.SETTINGS:
          return <Settings theme={theme} setTheme={setTheme} />;
       default:
@@ -90,7 +118,8 @@ function App() {
           setIsMobileMenuOpen(false);
         }} 
         isMobileMenuOpen={isMobileMenuOpen}
-        onLogout={() => setShowLandingPage(true)}
+        onClose={() => setIsMobileMenuOpen(false)}
+        onLogout={handleLogout}
       />
 
       {/* Main Content Area */}
@@ -98,9 +127,13 @@ function App() {
         
         {/* Mobile Header */}
         <header className="md:hidden bg-white dark:bg-dark-card border-b border-gray-200 dark:border-gray-800 h-16 flex items-center justify-between px-4 shrink-0 z-40 transition-colors duration-200">
-          <span className="font-bold text-gray-900 dark:text-white">GreenNova AI</span>
+          <span className="font-bold text-gray-900 dark:text-white">AI SBL System</span>
           <div className="flex items-center gap-2">
-            <button onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)} className="text-gray-600 dark:text-gray-300 p-2">
+            <button 
+              onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)} 
+              className="text-gray-600 dark:text-gray-300 p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
+              aria-label="Toggle menu"
+            >
                 {isMobileMenuOpen ? <X /> : <Menu />}
             </button>
           </div>

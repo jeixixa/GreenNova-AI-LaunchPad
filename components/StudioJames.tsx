@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { Copy, Check, Star, Zap, TrendingUp, MessageCircle } from 'lucide-react';
 
@@ -53,7 +54,7 @@ Here are the top 3 that actually make money:
 
 1 - ChatGPT (The Brain): Use it for strategy and frameworks, not just generic text.
 2 - Gemini (The Creative): Great for analyzing images and video scripts.
-3 - GreenNova Threads (The System): All-in-one content to cash machine.
+3 - SBL Threads (The System): All-in-one content to cash machine.
 
 Stop collecting tools. Start building systems.
 
@@ -76,7 +77,7 @@ const StudioJames: React.FC = () => {
     <div className="max-w-6xl mx-auto space-y-8 animate-fade-in">
       <div className="bg-gradient-to-r from-yellow-400 to-orange-500 rounded-2xl p-8 text-white shadow-lg relative overflow-hidden">
         <div className="relative z-10">
-            <h1 className="text-4xl font-serif font-bold mb-2">Studio James Viral Posts</h1>
+            <h1 className="text-4xl font-serif font-bold mb-2">Studio SBL Viral Posts</h1>
             <p className="text-yellow-100 font-medium text-lg max-w-2xl">
                 Access the exact templates and high-performing scripts used to generate millions of views. Copy, paste, and tweak for your niche.
             </p>
@@ -132,7 +133,7 @@ const StudioJames: React.FC = () => {
         <MessageCircle className="w-8 h-8 text-indigo-600 dark:text-indigo-400 mx-auto mb-3" />
         <h3 className="font-bold text-indigo-900 dark:text-indigo-200 text-lg">Need a Custom Strategy?</h3>
         <p className="text-indigo-700 dark:text-indigo-300 text-sm mb-4 max-w-md mx-auto">
-            These templates are great, but a custom strategy works best. Use the "James VIRAL Posts" generator to create unique content for your specific offer.
+            These templates are great, but a custom strategy works best. Use the "SBL Viral Posts" generator to create unique content for your specific offer.
         </p>
       </div>
     </div>

@@ -1,3 +1,4 @@
+
 export enum View {
   DASHBOARD = 'DASHBOARD',
   SHORTS_GENERATOR = 'SHORTS_GENERATOR', // Audio Studio
@@ -6,8 +7,13 @@ export enum View {
   VIRAL_SEARCH = 'VIRAL_SEARCH', // New: Find Viral Content
   STUDIO_JAMES = 'STUDIO_JAMES', // Studio James Viral Posts
   VIDEO_MAKER = 'VIDEO_MAKER', // AI Viral Video Maker
+  FREE_VIDEO_GENERATOR = 'FREE_VIDEO_GENERATOR', // Free AI Video Generation
   IMAGE_GENERATOR = 'IMAGE_GENERATOR', // Create New Image
+  AUTHORITY_GENERATOR = 'AUTHORITY_GENERATOR', // Authority Post Image Generator
+  FACE_FUSION = 'FACE_FUSION', // Creative Face Fusion
   SAVED_POSTS = 'SAVED_POSTS',
+  SCHEDULER = 'SCHEDULER', // Content Scheduler
+  ADMIN = 'ADMIN', // Admin Dashboard
   ACCOUNT = 'ACCOUNT',
   SETTINGS = 'SETTINGS'
 }

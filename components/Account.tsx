@@ -1,8 +1,10 @@
+
 import React, { useState, useEffect } from 'react';
 import { View } from '../types';
 import { getSavedItems } from '../services/storageService';
 import { createPayPalOrder, capturePayPalOrder, TIER_PRICES } from '../services/paypalService';
-import { Settings, CreditCard, LogOut, Database, ExternalLink, Save, User, Share2, Copy, Check, Crown, Zap, AlertTriangle, Lock, Loader2 } from 'lucide-react';
+import { analyzeSubscription } from '../services/geminiService';
+import { Settings, CreditCard, LogOut, Database, ExternalLink, Save, User, Share2, Copy, Check, Crown, Zap, AlertTriangle, Lock, Loader2, Activity, TrendingUp, RefreshCw, MessageSquare, Receipt, Download } from 'lucide-react';
 
 interface AccountProps {
   onNavigate: (view: View) => void;
@@ -21,6 +23,23 @@ interface SubscriptionState {
   };
 }
 
+interface AnalysisResult {
+    cancellation_risk: number;
+    renewal_action: string;
+    plan_change: string;
+    message_template: string;
+    priority_score: number;
+}
+
+interface PaymentRecord {
+  id: string;
+  date: string;
+  amount: string;
+  plan: string;
+  status: 'Success' | 'Refunded';
+  method: string;
+}
+
 const Account: React.FC<AccountProps> = ({ onNavigate, onLogout }) => {
   const [savedItemsCount, setSavedItemsCount] = useState(0);
   const [linkCopied, setLinkCopied] = useState(false);
@@ -32,7 +51,7 @@ const Account: React.FC<AccountProps> = ({ onNavigate, onLogout }) => {
   const [isEditing, setIsEditing] = useState(false);
   const [profile, setProfile] = useState({
       name: 'James Shizha',
-      email: 'james@greennovasystems.com'
+      email: 'james@sblsystem.com'
   });
 
   // Subscription State
@@ -48,7 +67,14 @@ const Account: React.FC<AccountProps> = ({ onNavigate, onLogout }) => {
     }
   });
 
-  const appLink = "https://greennova-threads.app/start?ref=james";
+  // Payment History State
+  const [paymentHistory, setPaymentHistory] = useState<PaymentRecord[]>([]);
+
+  // AI Analysis State
+  const [analysis, setAnalysis] = useState<AnalysisResult | null>(null);
+  const [analyzing, setAnalyzing] = useState(false);
+
+  const appLink = "https://ai.studio/apps/drive/1SUqMKJCeWEgGBdZJOZtCRr89lvfcGNaq?fullscreenApplet=true";
 
   // Load saved items and check for payment return
   useEffect(() => {
@@ -60,7 +86,7 @@ const Account: React.FC<AccountProps> = ({ onNavigate, onLogout }) => {
     const mbUsed = parseFloat((bytes / (1024 * 1024)).toFixed(2));
     
     // 2. Load Subscription from Storage (if exists)
-    const storedSub = localStorage.getItem('gn_subscription');
+    const storedSub = localStorage.getItem('sbl_subscription');
     if (storedSub) {
         setSubscription(JSON.parse(storedSub));
     } else {
@@ -72,6 +98,12 @@ const Account: React.FC<AccountProps> = ({ onNavigate, onLogout }) => {
                 storageUsedMB: mbUsed < 0.1 ? 0.1 : mbUsed
             }
         }));
+    }
+
+    // Load Payment History
+    const storedHistory = localStorage.getItem('sbl_payment_history');
+    if (storedHistory) {
+        setPaymentHistory(JSON.parse(storedHistory));
     }
 
     // 3. Handle PayPal Return
@@ -101,7 +133,26 @@ const Account: React.FC<AccountProps> = ({ onNavigate, onLogout }) => {
                 };
                 
                 setSubscription(newSub);
-                localStorage.setItem('gn_subscription', JSON.stringify(newSub));
+                localStorage.setItem('sbl_subscription', JSON.stringify(newSub));
+
+                // Add to Payment History
+                const amount = tier === 'agency' ? '99.00' : '5.00';
+                const newRecord: PaymentRecord = {
+                    id: token,
+                    date: new Date().toISOString(),
+                    amount: amount,
+                    plan: tier === 'agency' ? 'Annual Pro' : 'Monthly Starter',
+                    status: 'Success',
+                    method: 'PayPal'
+                };
+                
+                const currentHistory = JSON.parse(localStorage.getItem('sbl_payment_history') || '[]');
+                if (!currentHistory.some((r: PaymentRecord) => r.id === newRecord.id)) {
+                    const updatedHistory = [newRecord, ...currentHistory];
+                    localStorage.setItem('sbl_payment_history', JSON.stringify(updatedHistory));
+                    setPaymentHistory(updatedHistory);
+                }
+
                 setPaymentSuccess(`Successfully upgraded to ${tier === 'agency' ? 'Annual Pro' : 'Monthly Starter'} Plan!`);
                 
                 // Clean URL
@@ -123,12 +174,14 @@ const Account: React.FC<AccountProps> = ({ onNavigate, onLogout }) => {
 
   const clearData = () => {
     if (window.confirm('Are you sure you want to clear all local data? This cannot be undone.')) {
-      localStorage.removeItem('greennova_saved_content');
+      localStorage.removeItem('sbl_system_saved_content');
+      localStorage.removeItem('sbl_payment_history');
       setSavedItemsCount(0);
       setSubscription(prev => ({
         ...prev,
         features: { ...prev.features, postsUsed: 0, storageUsedMB: 0 }
       }));
+      setPaymentHistory([]);
       alert('Local data cleared.');
     }
   };
@@ -174,6 +227,41 @@ const Account: React.FC<AccountProps> = ({ onNavigate, onLogout }) => {
 
   const calculateProgress = (used: number, limit: number) => {
     return Math.min(100, (used / limit) * 100);
+  };
+
+  const runSubscriptionAnalysis = async () => {
+      setAnalyzing(true);
+      
+      // Mock Data to supplement real data
+      const mockUserData = {
+        user_id: profile.email,
+        last_login: new Date().toISOString(), // active now
+        subscription_status: subscription.status,
+        current_plan: subscription.plan,
+        usage_metrics: {
+            posts_created_last_30_days: subscription.features.postsUsed,
+            storage_usage_percent: Math.round((subscription.features.storageUsedMB / subscription.features.storageLimitMB) * 100),
+            saved_items: savedItemsCount,
+            feature_engagement: "High" // Mock
+        },
+        payment_history: paymentHistory.map(p => ({ date: p.date, status: p.status, amount: parseFloat(p.amount) })),
+        support_tickets: 0
+      };
+
+      try {
+          const result = await analyzeSubscription(mockUserData);
+          setAnalysis(result);
+      } catch (error) {
+          alert("Failed to run analysis. Please check API Key.");
+      } finally {
+          setAnalyzing(false);
+      }
+  };
+
+  const getRiskColor = (score: number) => {
+      if (score < 30) return "text-green-500";
+      if (score < 70) return "text-yellow-500";
+      return "text-red-500";
   };
 
   if (processingPayment) {
@@ -257,7 +345,7 @@ const Account: React.FC<AccountProps> = ({ onNavigate, onLogout }) => {
                 className={`px-6 py-3 rounded-xl font-bold text-sm transition-colors flex items-center justify-center
                     ${isEditing 
                         ? 'bg-brand-600 text-white hover:bg-brand-700 shadow-glow' 
-                        : 'bg-gray-900 dark:bg-white text-white dark:text-gray-900 hover:bg-gray-800 dark:hover:bg-gray-100'}`
+                        : 'bg-brand-900 dark:bg-white text-white dark:text-gray-900 hover:bg-brand-800 dark:hover:bg-gray-100 border-2 border-brand-700 dark:border-white'}`
                 }
             >
                 {isEditing ? <Save className="w-4 h-4 mr-2" /> : <User className="w-4 h-4 mr-2" />}
@@ -331,19 +419,19 @@ const Account: React.FC<AccountProps> = ({ onNavigate, onLogout }) => {
                         ? 'bg-gray-100 dark:bg-gray-700 text-gray-400 cursor-not-allowed border border-gray-200 dark:border-gray-600' 
                         : 'bg-white dark:bg-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600 border border-gray-200 dark:border-gray-600 text-gray-900 dark:text-white'}`}
                 >
-                    Upgrade to Monthly ($29.99/mo)
+                    Upgrade to Monthly ($5.00/mo)
                     <ExternalLink className="w-4 h-4 text-gray-400" />
                 </button>
 
                 <button 
                     onClick={() => handlePayPalUpgrade('agency')}
                     disabled={subscription.plan === 'Annual Pro'}
-                    className={`w-full py-3 px-4 rounded-xl font-bold text-sm transition-colors shadow-lg flex items-center justify-center gap-2
+                    className={`w-full py-3 px-4 rounded-xl font-bold text-sm transition-colors shadow-lg flex items-center justify-center gap-2 border-2 border-transparent
                     ${subscription.plan === 'Annual Pro'
                         ? 'bg-gray-100 dark:bg-gray-700 text-gray-400 cursor-not-allowed shadow-none'
-                        : 'bg-brand-600 hover:bg-brand-700 text-white shadow-brand-900/20'}`}
+                        : 'bg-brand-900 hover:bg-brand-800 border-brand-700 text-white shadow-brand-900/20'}`}
                 >
-                    {subscription.plan === 'Annual Pro' ? 'Pro Plan Active' : 'Upgrade to Annual Pro ($99.99/yr)'}
+                    {subscription.plan === 'Annual Pro' ? 'Pro Plan Active' : 'Upgrade to Annual Pro ($99.00/yr)'}
                     {subscription.plan !== 'Annual Pro' && <Zap className="w-4 h-4" />}
                 </button>
              </div>
@@ -393,6 +481,138 @@ const Account: React.FC<AccountProps> = ({ onNavigate, onLogout }) => {
           </div>
       </div>
 
+      {/* Payment History Section */}
+      <div className="bg-white dark:bg-gray-800 p-6 rounded-3xl border border-gray-200 dark:border-gray-700 shadow-sm mt-6">
+          <div className="flex items-center gap-3 mb-6">
+              <div className="p-3 bg-green-50 dark:bg-green-900/20 rounded-xl text-green-600 dark:text-green-400">
+                  <Receipt className="w-6 h-6" />
+              </div>
+              <h3 className="font-bold text-lg text-gray-900 dark:text-white">Payment History</h3>
+          </div>
+
+          <div className="overflow-x-auto">
+              <table className="w-full text-left border-collapse">
+                  <thead>
+                      <tr className="border-b border-gray-100 dark:border-gray-700 text-xs font-bold text-gray-500 uppercase tracking-wider">
+                          <th className="py-3 px-4">Date</th>
+                          <th className="py-3 px-4">Description</th>
+                          <th className="py-3 px-4">Amount</th>
+                          <th className="py-3 px-4">Status</th>
+                          <th className="py-3 px-4 text-right">Invoice</th>
+                      </tr>
+                  </thead>
+                  <tbody className="text-sm">
+                      {paymentHistory.length === 0 ? (
+                          <tr>
+                              <td colSpan={5} className="py-8 text-center text-gray-500 dark:text-gray-400">
+                                  No payment history found.
+                              </td>
+                          </tr>
+                      ) : (
+                          paymentHistory.map((record) => (
+                              <tr key={record.id} className="border-b border-gray-50 dark:border-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors">
+                                  <td className="py-4 px-4 text-gray-900 dark:text-white font-medium">
+                                      {new Date(record.date).toLocaleDateString()}
+                                  </td>
+                                  <td className="py-4 px-4 text-gray-600 dark:text-gray-300">
+                                      {record.plan} subscription
+                                      <span className="block text-xs text-gray-400">{record.method} • {record.id}</span>
+                                  </td>
+                                  <td className="py-4 px-4 text-gray-900 dark:text-white font-bold">
+                                      ${record.amount}
+                                  </td>
+                                  <td className="py-4 px-4">
+                                      <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400 capitalize">
+                                          {record.status}
+                                      </span>
+                                  </td>
+                                  <td className="py-4 px-4 text-right">
+                                      <button className="text-brand-600 dark:text-brand-400 hover:underline text-xs font-bold flex items-center justify-end w-full">
+                                          <Download className="w-3 h-3 mr-1" /> Download
+                                      </button>
+                                  </td>
+                              </tr>
+                          ))
+                      )}
+                  </tbody>
+              </table>
+          </div>
+      </div>
+      
+      {/* AI Subscription Intelligence */}
+      <div className="bg-white dark:bg-gray-800 p-6 rounded-3xl border border-gray-200 dark:border-gray-700 shadow-sm relative overflow-hidden">
+          <div className="flex items-center gap-3 mb-6 relative z-10">
+               <div className="p-3 bg-indigo-50 dark:bg-indigo-900/20 rounded-xl text-indigo-600 dark:text-indigo-400">
+                   <Activity className="w-6 h-6" />
+               </div>
+               <div>
+                   <h3 className="font-bold text-lg text-gray-900 dark:text-white">AI Subscription Intelligence</h3>
+                   <p className="text-xs text-gray-500 dark:text-gray-400">Predictive analytics for your account health.</p>
+               </div>
+          </div>
+          
+          {!analysis ? (
+              <div className="flex flex-col items-center justify-center py-8 relative z-10">
+                   <p className="text-gray-500 dark:text-gray-400 text-sm mb-4 text-center max-w-md">
+                       Let our AI analyze your usage patterns, payment history, and engagement to provide personalized insights and recommendations.
+                   </p>
+                   <button 
+                       onClick={runSubscriptionAnalysis}
+                       disabled={analyzing}
+                       className="bg-indigo-600 hover:bg-indigo-700 text-white px-6 py-3 rounded-xl font-bold flex items-center transition-all shadow-lg shadow-indigo-200 dark:shadow-none"
+                   >
+                       {analyzing ? <Loader2 className="animate-spin w-5 h-5 mr-2" /> : <TrendingUp className="w-5 h-5 mr-2" />}
+                       {analyzing ? 'Analyzing Account Data...' : 'Run Subscription Analysis'}
+                   </button>
+              </div>
+          ) : (
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6 relative z-10 animate-fade-in">
+                  <div className="bg-gray-50 dark:bg-gray-900/50 p-5 rounded-2xl border border-gray-100 dark:border-gray-700 space-y-4">
+                      <div className="flex justify-between items-center">
+                          <span className="text-sm font-bold text-gray-500 uppercase">Churn Risk Score</span>
+                          <span className={`text-2xl font-black ${getRiskColor(analysis.cancellation_risk)}`}>
+                              {analysis.cancellation_risk}%
+                          </span>
+                      </div>
+                      <div className="h-2 bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden">
+                           <div 
+                                className={`h-full rounded-full ${analysis.cancellation_risk < 50 ? 'bg-green-500' : 'bg-red-500'}`}
+                                style={{ width: `${analysis.cancellation_risk}%` }}
+                           ></div>
+                      </div>
+                      
+                      <div className="pt-2 border-t border-gray-200 dark:border-gray-700">
+                           <p className="text-xs font-bold text-gray-500 mb-1">Recommended Action</p>
+                           <p className="text-sm text-gray-800 dark:text-gray-200 font-medium">{analysis.renewal_action}</p>
+                      </div>
+
+                      <div>
+                           <p className="text-xs font-bold text-gray-500 mb-1">Plan Recommendation</p>
+                           <div className="flex items-center gap-2 text-sm text-indigo-600 dark:text-indigo-400 font-bold">
+                               <RefreshCw className="w-4 h-4" />
+                               {analysis.plan_change}
+                           </div>
+                      </div>
+                  </div>
+
+                  <div className="bg-indigo-50 dark:bg-indigo-900/10 p-5 rounded-2xl border border-indigo-100 dark:border-indigo-800/30 flex flex-col">
+                      <div className="flex items-center gap-2 mb-3 text-indigo-800 dark:text-indigo-300">
+                          <MessageSquare className="w-4 h-4" />
+                          <span className="text-xs font-bold uppercase">Personalized Message</span>
+                      </div>
+                      <div className="bg-white dark:bg-gray-900 p-4 rounded-xl text-sm text-gray-600 dark:text-gray-300 italic leading-relaxed border border-indigo-100 dark:border-indigo-900/50 flex-1">
+                          "{analysis.message_template}"
+                      </div>
+                      <div className="mt-3 flex justify-end">
+                           <span className="text-xs font-bold text-indigo-400 dark:text-indigo-500 bg-indigo-100 dark:bg-indigo-900/30 px-2 py-1 rounded">
+                               Priority Score: {analysis.priority_score}
+                           </span>
+                      </div>
+                  </div>
+              </div>
+          )}
+      </div>
+
       {/* Share Section */}
       <div className="bg-gradient-to-r from-brand-900 to-brand-800 p-8 rounded-3xl shadow-lg text-white flex flex-col md:flex-row items-center justify-between gap-6 relative overflow-hidden">
          <div className="absolute top-0 right-0 opacity-10 pointer-events-none">
@@ -400,7 +620,7 @@ const Account: React.FC<AccountProps> = ({ onNavigate, onLogout }) => {
          </div>
          
          <div className="relative z-10">
-            <h3 className="text-2xl font-bold font-serif mb-2">Share GreenNova Threads</h3>
+            <h3 className="text-2xl font-bold font-serif mb-2">Share Sustainable Business Launch System</h3>
             <p className="text-brand-100 max-w-lg leading-relaxed">
                 Invite your friends and colleagues. Help us grow the community of sustainable creators using AI.
             </p>

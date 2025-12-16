@@ -58,8 +58,14 @@ const Roadmap: React.FC = () => {
            >
              <option>E-commerce</option>
              <option>SaaS</option>
-             <option>Consulting</option>
+             <option>Consulting / Agency</option>
              <option>Content Creation</option>
+             <option>Service Business (Plumbing, Electrician)</option>
+             <option>Medical Practice / Clinic</option>
+             <option>Restaurant / Food Service</option>
+             <option>Education / Tutoring</option>
+             <option>Real Estate</option>
+             <option>Non-Profit Organization</option>
            </select>
            <button 
              onClick={generatePlan}
@@ -102,7 +108,7 @@ const Roadmap: React.FC = () => {
                  { label: 'Setup Social Accounts', done: true },
                  { label: 'Generate First Content', done: true },
                  { label: 'Launch Website', done: false },
-                 { label: 'First Sale', done: false },
+                 { label: 'First Client/Sale', done: false },
                ].map((item, idx) => (
                  <div key={idx} className="flex items-center">
                    {item.done ? (
