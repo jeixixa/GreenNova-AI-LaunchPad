@@ -1,19 +1,21 @@
 
 export enum View {
   DASHBOARD = 'DASHBOARD',
-  SHORTS_GENERATOR = 'SHORTS_GENERATOR', // Audio Studio
-  POST_TEMPLATES = 'POST_TEMPLATES', // 100+ Posts To Copy
-  VIRAL_GENERATOR = 'VIRAL_GENERATOR', // James VIRAL Posts
-  VIRAL_SEARCH = 'VIRAL_SEARCH', // New: Find Viral Content
-  STUDIO_JAMES = 'STUDIO_JAMES', // Studio James Viral Posts
-  VIDEO_MAKER = 'VIDEO_MAKER', // AI Viral Video Maker
-  FREE_VIDEO_GENERATOR = 'FREE_VIDEO_GENERATOR', // Free AI Video Generation
-  IMAGE_GENERATOR = 'IMAGE_GENERATOR', // Create New Image
-  AUTHORITY_GENERATOR = 'AUTHORITY_GENERATOR', // Authority Post Image Generator
-  FACE_FUSION = 'FACE_FUSION', // Creative Face Fusion
+  MASTERCLASS = 'MASTERCLASS', // Strategic Blueprint
+  SHORTS_GENERATOR = 'SHORTS_GENERATOR', 
+  POST_TEMPLATES = 'POST_TEMPLATES', 
+  VIRAL_GENERATOR = 'VIRAL_GENERATOR', 
+  VIRAL_SEARCH = 'VIRAL_SEARCH', 
+  VIDEO_REPURPOSER = 'VIDEO_REPURPOSER', 
+  STUDIO_JAMES = 'STUDIO_JAMES', 
+  VIDEO_MAKER = 'VIDEO_MAKER', 
+  FREE_VIDEO_GENERATOR = 'FREE_VIDEO_GENERATOR', 
+  IMAGE_GENERATOR = 'IMAGE_GENERATOR', 
+  AUTHORITY_GENERATOR = 'AUTHORITY_GENERATOR', 
+  FACE_FUSION = 'FACE_FUSION', 
   SAVED_POSTS = 'SAVED_POSTS',
-  SCHEDULER = 'SCHEDULER', // Content Scheduler
-  ADMIN = 'ADMIN', // Admin Dashboard
+  SCHEDULER = 'SCHEDULER', 
+  ADMIN = 'ADMIN', 
   ACCOUNT = 'ACCOUNT',
   SETTINGS = 'SETTINGS'
 }
@@ -30,14 +32,14 @@ export interface ContentItem {
 export interface SavedItem {
   id: string;
   type: 'Post' | 'Image' | 'Video' | 'Audio';
-  content: string; // Text content or Base64 data
-  preview?: string; // Thumbnail or preview content
-  title: string; // Prompt or short description
+  content: string; 
+  preview?: string; 
+  title: string; 
   createdAt: number;
 }
 
 export enum AIModel {
-  TEXT = 'gemini-2.5-flash',
+  TEXT = 'gemini-3-flash-preview',
   IMAGE_EDIT = 'gemini-2.5-flash-image',
   IMAGE_GEN = 'imagen-4.0-generate-001',
   TTS = 'gemini-2.5-flash-preview-tts',

@@ -4,7 +4,7 @@ import { View } from '../types';
 import { getSavedItems } from '../services/storageService';
 import { createPayPalOrder, capturePayPalOrder, TIER_PRICES } from '../services/paypalService';
 import { analyzeSubscription } from '../services/geminiService';
-import { Settings, CreditCard, LogOut, Database, ExternalLink, Save, User, Share2, Copy, Check, Crown, Zap, AlertTriangle, Lock, Loader2, Activity, TrendingUp, RefreshCw, MessageSquare, Receipt, Download } from 'lucide-react';
+import { Settings, CreditCard, LogOut, Database, ExternalLink, Save, User, Share2, Copy, Check, Crown, Zap, AlertTriangle, Lock, Loader2, Activity, TrendingUp, RefreshCw, MessageSquare, Receipt, Download, Target, Briefcase, DollarSign, Globe } from 'lucide-react';
 
 interface AccountProps {
   onNavigate: (view: View) => void;
@@ -21,6 +21,15 @@ interface SubscriptionState {
     storageUsedMB: number;
     storageLimitMB: number;
   };
+}
+
+interface GlobalOffer {
+    name: string;
+    link: string;
+    description: string;
+    targetAudience: string;
+    pricePoint: string;
+    transformation: string;
 }
 
 interface AnalysisResult {
@@ -53,6 +62,18 @@ const Account: React.FC<AccountProps> = ({ onNavigate, onLogout }) => {
       name: 'James Shizha',
       email: 'james@sblsystem.com'
   });
+  const [emailError, setEmailError] = useState('');
+
+  // Global Offer State
+  const [offer, setOffer] = useState<GlobalOffer>({
+      name: '',
+      link: '',
+      description: '',
+      targetAudience: '',
+      pricePoint: '',
+      transformation: ''
+  });
+  const [isEditingOffer, setIsEditingOffer] = useState(false);
 
   // Subscription State
   const [subscription, setSubscription] = useState<SubscriptionState>({
@@ -76,7 +97,6 @@ const Account: React.FC<AccountProps> = ({ onNavigate, onLogout }) => {
 
   const appLink = "https://ai.studio/apps/drive/1SUqMKJCeWEgGBdZJOZtCRr89lvfcGNaq?fullscreenApplet=true";
 
-  // Load saved items and check for payment return
   useEffect(() => {
     // 1. Load Data Stats
     const items = getSavedItems();
@@ -85,7 +105,7 @@ const Account: React.FC<AccountProps> = ({ onNavigate, onLogout }) => {
     const bytes = new Blob([json]).size;
     const mbUsed = parseFloat((bytes / (1024 * 1024)).toFixed(2));
     
-    // 2. Load Subscription from Storage (if exists)
+    // 2. Load Subscription from Storage
     const storedSub = localStorage.getItem('sbl_subscription');
     if (storedSub) {
         setSubscription(JSON.parse(storedSub));
@@ -100,17 +120,23 @@ const Account: React.FC<AccountProps> = ({ onNavigate, onLogout }) => {
         }));
     }
 
+    // 3. Load Global Offer
+    const storedOffer = localStorage.getItem('sbl_global_offer');
+    if (storedOffer) {
+        setOffer(JSON.parse(storedOffer));
+    }
+
     // Load Payment History
     const storedHistory = localStorage.getItem('sbl_payment_history');
     if (storedHistory) {
         setPaymentHistory(JSON.parse(storedHistory));
     }
 
-    // 3. Handle PayPal Return
+    // 4. Handle PayPal Return
     const handlePaymentReturn = async () => {
         const params = new URLSearchParams(window.location.search);
         const isSuccess = params.get('payment_success');
-        const token = params.get('token'); // PayPal Order ID
+        const token = params.get('token'); 
         const payerId = params.get('PayerID');
         const tier = params.get('tier') as 'pro' | 'agency' || 'pro';
 
@@ -119,7 +145,6 @@ const Account: React.FC<AccountProps> = ({ onNavigate, onLogout }) => {
             try {
                 await capturePayPalOrder(token);
                 
-                // Upgrade Logic
                 const newSub: SubscriptionState = {
                     plan: tier === 'agency' ? 'Annual Pro' : 'Monthly Starter',
                     status: 'Active',
@@ -135,7 +160,6 @@ const Account: React.FC<AccountProps> = ({ onNavigate, onLogout }) => {
                 setSubscription(newSub);
                 localStorage.setItem('sbl_subscription', JSON.stringify(newSub));
 
-                // Add to Payment History
                 const amount = tier === 'agency' ? '99.00' : '5.00';
                 const newRecord: PaymentRecord = {
                     id: token,
@@ -154,8 +178,6 @@ const Account: React.FC<AccountProps> = ({ onNavigate, onLogout }) => {
                 }
 
                 setPaymentSuccess(`Successfully upgraded to ${tier === 'agency' ? 'Annual Pro' : 'Monthly Starter'} Plan!`);
-                
-                // Clean URL
                 window.history.replaceState({}, '', window.location.pathname);
             } catch (error) {
                 console.error(error);
@@ -172,10 +194,17 @@ const Account: React.FC<AccountProps> = ({ onNavigate, onLogout }) => {
     handlePaymentReturn();
   }, []);
 
+  const saveOffer = () => {
+      localStorage.setItem('sbl_global_offer', JSON.stringify(offer));
+      setIsEditingOffer(false);
+      alert("Primary Offer details saved globally.");
+  };
+
   const clearData = () => {
     if (window.confirm('Are you sure you want to clear all local data? This cannot be undone.')) {
       localStorage.removeItem('sbl_system_saved_content');
       localStorage.removeItem('sbl_payment_history');
+      localStorage.removeItem('sbl_global_offer');
       setSavedItemsCount(0);
       setSubscription(prev => ({
         ...prev,
@@ -196,9 +225,7 @@ const Account: React.FC<AccountProps> = ({ onNavigate, onLogout }) => {
     setPaymentError('');
     
     try {
-        const order = await createPayPalOrder(tier, "user_123"); // Mock User ID
-        
-        // Find approval link
+        const order = await createPayPalOrder(tier, "user_123"); 
         const approveLink = order.links.find((link: any) => link.rel === "approve");
         if (approveLink) {
             window.location.href = approveLink.href;
@@ -212,8 +239,18 @@ const Account: React.FC<AccountProps> = ({ onNavigate, onLogout }) => {
     }
   };
 
+  const validateEmail = (email: string) => {
+    const re = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    return re.test(email);
+  };
+
   const toggleEdit = () => {
       if (isEditing) {
+          if (!validateEmail(profile.email)) {
+              setEmailError('Please enter a valid email address.');
+              return;
+          }
+          setEmailError('');
           alert("Profile Updated Successfully!");
       }
       setIsEditing(!isEditing);
@@ -231,18 +268,16 @@ const Account: React.FC<AccountProps> = ({ onNavigate, onLogout }) => {
 
   const runSubscriptionAnalysis = async () => {
       setAnalyzing(true);
-      
-      // Mock Data to supplement real data
       const mockUserData = {
         user_id: profile.email,
-        last_login: new Date().toISOString(), // active now
+        last_login: new Date().toISOString(),
         subscription_status: subscription.status,
         current_plan: subscription.plan,
         usage_metrics: {
             posts_created_last_30_days: subscription.features.postsUsed,
             storage_usage_percent: Math.round((subscription.features.storageUsedMB / subscription.features.storageLimitMB) * 100),
             saved_items: savedItemsCount,
-            feature_engagement: "High" // Mock
+            feature_engagement: "High"
         },
         payment_history: paymentHistory.map(p => ({ date: p.date, status: p.status, amount: parseFloat(p.amount) })),
         support_tickets: 0
@@ -278,7 +313,7 @@ const Account: React.FC<AccountProps> = ({ onNavigate, onLogout }) => {
     <div className="max-w-4xl mx-auto space-y-8 animate-fade-in pb-12">
       <div className="mb-8">
         <h1 className="text-3xl font-serif font-bold text-gray-900 dark:text-white">My Account</h1>
-        <p className="text-gray-500 dark:text-gray-400 mt-1">Manage your profile, subscription, and data.</p>
+        <p className="text-gray-500 dark:text-gray-400 mt-1">Manage your profile, primary offer, and subscription.</p>
       </div>
 
       {paymentSuccess && (
@@ -315,9 +350,13 @@ const Account: React.FC<AccountProps> = ({ onNavigate, onLogout }) => {
                        <label className="text-xs font-bold text-gray-500 uppercase ml-1">Email Address</label>
                        <input 
                            value={profile.email} 
-                           onChange={(e) => setProfile({...profile, email: e.target.value})}
-                           className="w-full p-2 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-600 rounded-lg text-gray-500 dark:text-gray-300 text-sm focus:ring-2 focus:ring-brand-500 outline-none"
+                           onChange={(e) => {
+                               setProfile({...profile, email: e.target.value});
+                               if (emailError) setEmailError('');
+                           }}
+                           className={`w-full p-2 bg-gray-50 dark:bg-gray-900 border ${emailError ? 'border-red-500' : 'border-gray-200 dark:border-gray-600'} rounded-lg text-gray-500 dark:text-gray-300 text-sm focus:ring-2 focus:ring-brand-500 outline-none`}
                        />
+                       {emailError && <p className="text-red-500 text-[10px] font-bold mt-1 ml-1">{emailError}</p>}
                    </div>
                </div>
            ) : (
@@ -357,6 +396,97 @@ const Account: React.FC<AccountProps> = ({ onNavigate, onLogout }) => {
         </div>
       </div>
 
+      {/* Offer Builder Section */}
+      <div className="bg-white dark:bg-gray-800 rounded-3xl p-8 border border-gray-200 dark:border-gray-700 shadow-sm">
+          <div className="flex justify-between items-center mb-6">
+               <div className="flex items-center gap-3">
+                   <div className="p-3 bg-brand-50 dark:bg-brand-900/20 rounded-xl text-brand-600 dark:text-brand-400">
+                       <Briefcase className="w-6 h-6" />
+                   </div>
+                   <div>
+                       <h3 className="font-bold text-lg text-gray-900 dark:text-white">My Primary Offer</h3>
+                       <p className="text-xs text-gray-500 dark:text-gray-400">Set globally to auto-fill content generators.</p>
+                   </div>
+               </div>
+               <button 
+                onClick={() => isEditingOffer ? saveOffer() : setIsEditingOffer(true)}
+                className={`px-4 py-2 rounded-lg font-bold text-xs transition-colors flex items-center border ${isEditingOffer ? 'bg-brand-600 text-white border-brand-500' : 'bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-200 border-gray-200 dark:border-gray-600'}`}
+               >
+                   {isEditingOffer ? <Save className="w-3.5 h-3.5 mr-1.5" /> : <Settings className="w-3.5 h-3.5 mr-1.5" />}
+                   {isEditingOffer ? 'Save Offer' : 'Configure Offer'}
+               </button>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div className="space-y-4">
+                  <div>
+                      <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest block mb-1.5 ml-1 flex items-center"><Target className="w-3 h-3 mr-1" /> Offer Name</label>
+                      <input 
+                        disabled={!isEditingOffer}
+                        value={offer.name}
+                        onChange={(e) => setOffer({...offer, name: e.target.value})}
+                        placeholder="e.g. SBL System Monetizer"
+                        className="w-full p-2.5 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl text-sm dark:text-white focus:ring-2 focus:ring-brand-500 outline-none disabled:opacity-60"
+                      />
+                  </div>
+                  <div>
+                      <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest block mb-1.5 ml-1 flex items-center"><Globe className="w-3 h-3 mr-1" /> Landing Page URL</label>
+                      <input 
+                        disabled={!isEditingOffer}
+                        value={offer.link}
+                        onChange={(e) => setOffer({...offer, link: e.target.value})}
+                        placeholder="https://yoursite.com/offer"
+                        className="w-full p-2.5 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl text-sm dark:text-white focus:ring-2 focus:ring-brand-500 outline-none disabled:opacity-60"
+                      />
+                  </div>
+                  <div>
+                      <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest block mb-1.5 ml-1 flex items-center"><DollarSign className="w-3 h-3 mr-1" /> Price Point</label>
+                      <input 
+                        disabled={!isEditingOffer}
+                        value={offer.pricePoint}
+                        onChange={(e) => setOffer({...offer, pricePoint: e.target.value})}
+                        placeholder="e.g. $997 One-Time or $97/mo"
+                        className="w-full p-2.5 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl text-sm dark:text-white focus:ring-2 focus:ring-brand-500 outline-none disabled:opacity-60"
+                      />
+                  </div>
+              </div>
+
+              <div className="space-y-4">
+                  <div>
+                      <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest block mb-1.5 ml-1 flex items-center"><User className="w-3 h-3 mr-1" /> Target Audience</label>
+                      <input 
+                        disabled={!isEditingOffer}
+                        value={offer.targetAudience}
+                        onChange={(e) => setOffer({...offer, targetAudience: e.target.value})}
+                        placeholder="e.g. Struggling Freelancers, Course Creators"
+                        className="w-full p-2.5 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl text-sm dark:text-white focus:ring-2 focus:ring-brand-500 outline-none disabled:opacity-60"
+                      />
+                  </div>
+                  <div>
+                      <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest block mb-1.5 ml-1">The Transformation (From -> To)</label>
+                      <textarea 
+                        disabled={!isEditingOffer}
+                        value={offer.transformation}
+                        onChange={(e) => setOffer({...offer, transformation: e.target.value})}
+                        placeholder="e.g. From working 80 hours a week to making $10k/mo in 4 hours/day."
+                        className="w-full p-2.5 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl text-sm dark:text-white focus:ring-2 focus:ring-brand-500 outline-none h-[104px] resize-none disabled:opacity-60"
+                      />
+                  </div>
+              </div>
+
+              <div className="md:col-span-2">
+                  <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest block mb-1.5 ml-1">Detailed Description</label>
+                  <textarea 
+                    disabled={!isEditingOffer}
+                    value={offer.description}
+                    onChange={(e) => setOffer({...offer, description: e.target.value})}
+                    placeholder="Briefly describe what your offer actually is and how it works..."
+                    className="w-full p-2.5 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl text-sm dark:text-white focus:ring-2 focus:ring-brand-500 outline-none h-24 resize-none disabled:opacity-60"
+                  />
+              </div>
+          </div>
+      </div>
+
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           {/* Billing Management */}
           <div className="bg-white dark:bg-gray-800 p-6 rounded-3xl border border-gray-200 dark:border-gray-700 shadow-sm flex flex-col">
@@ -366,13 +496,9 @@ const Account: React.FC<AccountProps> = ({ onNavigate, onLogout }) => {
                         <CreditCard className="w-6 h-6" />
                     </div>
                     <div>
-                        <h3 className="font-bold text-lg text-gray-900 dark:text-white">Billing Management</h3>
+                        <h3 className="font-bold text-lg text-gray-900 dark:text-white">Billing</h3>
                         <p className="text-xs text-gray-500 dark:text-gray-400">Payment & Subscription</p>
                     </div>
-                 </div>
-                 <div className="flex items-center text-xs text-gray-400 gap-1 bg-gray-50 dark:bg-gray-900 px-2 py-1 rounded-md border border-gray-200 dark:border-gray-700">
-                     <Lock className="w-3 h-3" />
-                     Secured by PayPal
                  </div>
              </div>
 
@@ -447,7 +573,6 @@ const Account: React.FC<AccountProps> = ({ onNavigate, onLogout }) => {
              </div>
              
              <div className="space-y-6 flex-1">
-                {/* Storage Meter */}
                 <div className="bg-gray-50 dark:bg-gray-900/50 p-5 rounded-2xl border border-gray-100 dark:border-gray-700">
                     <div className="flex justify-between items-end mb-2">
                         <span className="text-sm font-bold text-gray-700 dark:text-gray-300">Cloud Storage</span>
@@ -537,112 +662,6 @@ const Account: React.FC<AccountProps> = ({ onNavigate, onLogout }) => {
                   </tbody>
               </table>
           </div>
-      </div>
-      
-      {/* AI Subscription Intelligence */}
-      <div className="bg-white dark:bg-gray-800 p-6 rounded-3xl border border-gray-200 dark:border-gray-700 shadow-sm relative overflow-hidden">
-          <div className="flex items-center gap-3 mb-6 relative z-10">
-               <div className="p-3 bg-indigo-50 dark:bg-indigo-900/20 rounded-xl text-indigo-600 dark:text-indigo-400">
-                   <Activity className="w-6 h-6" />
-               </div>
-               <div>
-                   <h3 className="font-bold text-lg text-gray-900 dark:text-white">AI Subscription Intelligence</h3>
-                   <p className="text-xs text-gray-500 dark:text-gray-400">Predictive analytics for your account health.</p>
-               </div>
-          </div>
-          
-          {!analysis ? (
-              <div className="flex flex-col items-center justify-center py-8 relative z-10">
-                   <p className="text-gray-500 dark:text-gray-400 text-sm mb-4 text-center max-w-md">
-                       Let our AI analyze your usage patterns, payment history, and engagement to provide personalized insights and recommendations.
-                   </p>
-                   <button 
-                       onClick={runSubscriptionAnalysis}
-                       disabled={analyzing}
-                       className="bg-indigo-600 hover:bg-indigo-700 text-white px-6 py-3 rounded-xl font-bold flex items-center transition-all shadow-lg shadow-indigo-200 dark:shadow-none"
-                   >
-                       {analyzing ? <Loader2 className="animate-spin w-5 h-5 mr-2" /> : <TrendingUp className="w-5 h-5 mr-2" />}
-                       {analyzing ? 'Analyzing Account Data...' : 'Run Subscription Analysis'}
-                   </button>
-              </div>
-          ) : (
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6 relative z-10 animate-fade-in">
-                  <div className="bg-gray-50 dark:bg-gray-900/50 p-5 rounded-2xl border border-gray-100 dark:border-gray-700 space-y-4">
-                      <div className="flex justify-between items-center">
-                          <span className="text-sm font-bold text-gray-500 uppercase">Churn Risk Score</span>
-                          <span className={`text-2xl font-black ${getRiskColor(analysis.cancellation_risk)}`}>
-                              {analysis.cancellation_risk}%
-                          </span>
-                      </div>
-                      <div className="h-2 bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden">
-                           <div 
-                                className={`h-full rounded-full ${analysis.cancellation_risk < 50 ? 'bg-green-500' : 'bg-red-500'}`}
-                                style={{ width: `${analysis.cancellation_risk}%` }}
-                           ></div>
-                      </div>
-                      
-                      <div className="pt-2 border-t border-gray-200 dark:border-gray-700">
-                           <p className="text-xs font-bold text-gray-500 mb-1">Recommended Action</p>
-                           <p className="text-sm text-gray-800 dark:text-gray-200 font-medium">{analysis.renewal_action}</p>
-                      </div>
-
-                      <div>
-                           <p className="text-xs font-bold text-gray-500 mb-1">Plan Recommendation</p>
-                           <div className="flex items-center gap-2 text-sm text-indigo-600 dark:text-indigo-400 font-bold">
-                               <RefreshCw className="w-4 h-4" />
-                               {analysis.plan_change}
-                           </div>
-                      </div>
-                  </div>
-
-                  <div className="bg-indigo-50 dark:bg-indigo-900/10 p-5 rounded-2xl border border-indigo-100 dark:border-indigo-800/30 flex flex-col">
-                      <div className="flex items-center gap-2 mb-3 text-indigo-800 dark:text-indigo-300">
-                          <MessageSquare className="w-4 h-4" />
-                          <span className="text-xs font-bold uppercase">Personalized Message</span>
-                      </div>
-                      <div className="bg-white dark:bg-gray-900 p-4 rounded-xl text-sm text-gray-600 dark:text-gray-300 italic leading-relaxed border border-indigo-100 dark:border-indigo-900/50 flex-1">
-                          "{analysis.message_template}"
-                      </div>
-                      <div className="mt-3 flex justify-end">
-                           <span className="text-xs font-bold text-indigo-400 dark:text-indigo-500 bg-indigo-100 dark:bg-indigo-900/30 px-2 py-1 rounded">
-                               Priority Score: {analysis.priority_score}
-                           </span>
-                      </div>
-                  </div>
-              </div>
-          )}
-      </div>
-
-      {/* Share Section */}
-      <div className="bg-gradient-to-r from-brand-900 to-brand-800 p-8 rounded-3xl shadow-lg text-white flex flex-col md:flex-row items-center justify-between gap-6 relative overflow-hidden">
-         <div className="absolute top-0 right-0 opacity-10 pointer-events-none">
-            <Share2 className="w-64 h-64 -mr-10 -mt-10" />
-         </div>
-         
-         <div className="relative z-10">
-            <h3 className="text-2xl font-bold font-serif mb-2">Share Sustainable Business Launch System</h3>
-            <p className="text-brand-100 max-w-lg leading-relaxed">
-                Invite your friends and colleagues. Help us grow the community of sustainable creators using AI.
-            </p>
-         </div>
-
-         <div className="relative z-10 w-full md:w-auto bg-white/10 p-1.5 rounded-xl backdrop-blur-sm border border-white/10 flex items-center">
-            <a 
-                href={appLink} 
-                target="_blank" 
-                rel="noopener noreferrer"
-                className="px-4 py-2 text-sm font-mono text-brand-100 truncate max-w-[200px] md:max-w-xs hover:text-white hover:underline transition-colors cursor-pointer"
-            >
-                {appLink}
-            </a>
-            <button 
-                onClick={copyLink}
-                className="bg-white text-brand-900 px-4 py-2 rounded-lg font-bold text-sm hover:bg-brand-50 transition-colors flex items-center ml-2 shrink-0"
-            >
-                {linkCopied ? <Check className="w-4 h-4 mr-2" /> : <Copy className="w-4 h-4 mr-2" />}
-                {linkCopied ? 'Copied' : 'Copy Link'}
-            </button>
-         </div>
       </div>
     </div>
   );

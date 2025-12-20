@@ -20,7 +20,9 @@ import {
   Film,
   BarChart3,
   ChevronDown,
-  ChevronRight
+  ChevronRight,
+  RefreshCw,
+  BookOpen
 } from 'lucide-react';
 import GreenNovaLogo from './GreenNovaLogo';
 
@@ -44,12 +46,12 @@ type NavGroup = {
 };
 
 const Sidebar: React.FC<SidebarProps> = ({ currentView, onNavigate, isMobileMenuOpen, onLogout, onClose }) => {
-  // Define navigation structure with groups
   const navGroups: NavGroup[] = [
     {
       title: 'Overview',
       items: [
         { id: View.DASHBOARD, label: 'Dashboard', icon: LayoutDashboard },
+        { id: View.MASTERCLASS, label: 'The SBL Blueprint', icon: BookOpen },
       ]
     },
     {
@@ -57,6 +59,7 @@ const Sidebar: React.FC<SidebarProps> = ({ currentView, onNavigate, isMobileMenu
       items: [
         { id: View.VIRAL_GENERATOR, label: 'Viral LaunchPad', icon: Sparkles }, 
         { id: View.VIRAL_SEARCH, label: 'Find Viral Content', icon: Search },
+        { id: View.VIDEO_REPURPOSER, label: 'Video Repurposer', icon: RefreshCw },
         { id: View.POST_TEMPLATES, label: 'Viral Templates', icon: Copy },
         { id: View.STUDIO_JAMES, label: 'Studio SBL Posts', icon: Star },
       ]
@@ -89,7 +92,6 @@ const Sidebar: React.FC<SidebarProps> = ({ currentView, onNavigate, isMobileMenu
     }
   ];
 
-  // State to track expanded groups.
   const [expandedGroups, setExpandedGroups] = useState<Record<string, boolean>>({
     'Overview': true,
     'Content Engine': true,
@@ -104,7 +106,6 @@ const Sidebar: React.FC<SidebarProps> = ({ currentView, onNavigate, isMobileMenu
 
   return (
     <>
-      {/* Mobile Backdrop Overlay */}
       <div 
         className={`fixed inset-0 bg-gray-900/80 backdrop-blur-md z-[45] md:hidden transition-opacity duration-300 ease-in-out ${
           isMobileMenuOpen ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none'
@@ -114,13 +115,11 @@ const Sidebar: React.FC<SidebarProps> = ({ currentView, onNavigate, isMobileMenu
         aria-label="Close menu"
       />
 
-      {/* Sidebar Navigation */}
       <aside className={`
         fixed inset-y-4 left-4 z-[50] w-72 bg-dark-card rounded-3xl border border-gray-800 shadow-2xl transform transition-transform duration-300 ease-in-out flex flex-col
         ${isMobileMenuOpen ? 'translate-x-0' : '-translate-x-[150%]'}
         md:relative md:translate-x-0 md:inset-y-0 md:left-0 md:my-4 md:ml-4 md:rounded-3xl overflow-hidden
       `}>
-        {/* Header */}
         <div className="flex items-center justify-center h-24 shrink-0 border-b border-gray-800/50 mx-4 mb-2">
           <div className="flex items-center space-x-3">
             <div className="flex items-center justify-center text-brand-500">
@@ -134,7 +133,6 @@ const Sidebar: React.FC<SidebarProps> = ({ currentView, onNavigate, isMobileMenu
           </div>
         </div>
         
-        {/* Navigation Groups */}
         <nav className="flex-1 px-3 pb-2 space-y-2 overflow-y-auto custom-scrollbar">
           {navGroups.map((group) => {
             const isExpanded = expandedGroups[group.title];
@@ -185,7 +183,6 @@ const Sidebar: React.FC<SidebarProps> = ({ currentView, onNavigate, isMobileMenu
           })}
         </nav>
 
-        {/* Footer */}
         <div className="p-4 pt-0 border-t border-gray-800 mt-2 shrink-0">
           <button 
             onClick={onLogout}

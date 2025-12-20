@@ -12,26 +12,25 @@ import StudioJames from './components/StudioJames';
 import LandingPage from './components/LandingPage';
 import Account from './components/Account';
 import ViralSearch from './components/ViralSearch';
+import VideoRepurposer from './components/VideoRepurposer';
 import Scheduler from './components/Scheduler';
 import Settings from './components/Settings';
 import FaceFusion from './components/FaceFusion';
 import AuthorityGenerator from './components/AuthorityGenerator';
 import FreeVideoGenerator from './components/FreeVideoGenerator';
 import AdminDashboard from './components/AdminDashboard';
+import Masterclass from './components/Masterclass';
 import { View } from './types';
 import { Menu, X } from 'lucide-react';
 
 function App() {
-  // Initialize based on whether user has previously logged in
   const [showLandingPage, setShowLandingPage] = useState(() => {
-      // Check if user email is stored
       return !localStorage.getItem('sbl_user_email');
   });
   
   const [currentView, setCurrentView] = useState<View>(View.VIRAL_GENERATOR); 
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   
-  // Initialize theme from localStorage or default to dark
   const [theme, setTheme] = useState<'light' | 'dark'>(() => {
       if (typeof window !== 'undefined') {
           const saved = localStorage.getItem('sbl_theme');
@@ -41,7 +40,6 @@ function App() {
   });
 
   useEffect(() => {
-    // Apply theme class and save to localStorage
     const root = document.documentElement;
     if (theme === 'dark') {
       root.classList.add('dark');
@@ -50,7 +48,6 @@ function App() {
     }
     localStorage.setItem('sbl_theme', theme);
 
-    // Check for PayPal return params
     const params = new URLSearchParams(window.location.search);
     if (params.get('payment_success') === 'true' || params.get('payment_cancel') === 'true') {
         setShowLandingPage(false);
@@ -59,7 +56,6 @@ function App() {
   }, [theme]);
 
   const handleLogout = () => {
-      // Clear session data
       localStorage.removeItem('sbl_user_email');
       localStorage.removeItem('sbl_admin_auth');
       setShowLandingPage(true);
@@ -69,10 +65,14 @@ function App() {
     switch (currentView) {
       case View.DASHBOARD:
         return <Dashboard onNavigate={(view) => setCurrentView(view as unknown as View)} />;
+      case View.MASTERCLASS:
+        return <Masterclass />;
       case View.VIRAL_GENERATOR:
         return <ContentCreator />;
       case View.VIRAL_SEARCH:
         return <ViralSearch onNavigate={(view) => setCurrentView(view)} />;
+      case View.VIDEO_REPURPOSER:
+        return <VideoRepurposer />;
       case View.SHORTS_GENERATOR:
         return <AudioStudio />;
       case View.VIDEO_MAKER:
@@ -122,10 +122,8 @@ function App() {
         onLogout={handleLogout}
       />
 
-      {/* Main Content Area */}
       <div className="flex-1 flex flex-col overflow-hidden relative bg-gray-50 dark:bg-dark-bg transition-colors duration-200">
         
-        {/* Mobile Header */}
         <header className="md:hidden bg-white dark:bg-dark-card border-b border-gray-200 dark:border-gray-800 h-16 flex items-center justify-between px-4 shrink-0 z-40 transition-colors duration-200">
           <span className="font-bold text-gray-900 dark:text-white">AI SBL System</span>
           <div className="flex items-center gap-2">

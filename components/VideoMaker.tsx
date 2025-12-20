@@ -3,7 +3,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import { generateVideo, VideoGenerationParams, generateVideoMeta } from '../services/geminiService';
 import { saveItem, blobUrlToBase64 } from '../services/storageService';
 import { trackEvent } from '../services/analyticsService';
-import { Loader2, Upload, Video, X, Play, Film, AlertCircle, Key, Bookmark, Check, Layers, Zap, PenTool, Layout, Smartphone, Share2, GripVertical, Undo, Redo } from 'lucide-react';
+import { Loader2, Upload, Video, X, Play, Film, AlertCircle, Key, Bookmark, Check, Layers, Zap, PenTool, Layout, Smartphone, Share2, GripVertical, Undo, Redo, RefreshCw, RotateCcw } from 'lucide-react';
 
 interface TimelineClip {
     id: number;
@@ -197,6 +197,34 @@ const VideoMaker: React.FC = () => {
           setHistoryIndex(newIndex);
           setClips(history[newIndex]);
       }
+  };
+
+  const handleRegenerateTimeline = () => {
+      if (!editorVideo) return;
+      
+      // Simulate AI Scene Detection / Auto-Split
+      // In a real app, this would analyze keyframes
+      const clipCount = 4;
+      const newClips: TimelineClip[] = [];
+      const durationPerClip = 3; // 3 seconds each
+      
+      for (let i = 0; i < clipCount; i++) {
+          newClips.push({
+              id: Date.now() + i,
+              name: `Auto Scene ${i + 1}`,
+              start: i * durationPerClip,
+              end: (i * durationPerClip) + durationPerClip,
+              url: editorVideo
+          });
+      }
+      
+      updateClipsWithHistory(newClips);
+  };
+
+  const handleResetTimeline = () => {
+      if (!editorVideo) return;
+      const newClips = [{ id: Date.now(), name: editorVideoName, start: 0, end: 10, url: editorVideo }];
+      updateClipsWithHistory(newClips);
   };
 
   const sendToEditor = async () => {
@@ -502,6 +530,21 @@ const VideoMaker: React.FC = () => {
                                     title="Redo"
                                  >
                                      <Redo className="w-3 h-3" />
+                                 </button>
+                                 <div className="w-px bg-gray-700 mx-0.5"></div>
+                                 <button 
+                                    onClick={handleRegenerateTimeline}
+                                    className="p-1 hover:bg-gray-700 rounded text-gray-400 hover:text-brand-400 disabled:opacity-30 transition-colors"
+                                    title="Auto-Split Scenes (Regenerate)"
+                                 >
+                                     <RefreshCw className="w-3 h-3" />
+                                 </button>
+                                 <button 
+                                    onClick={handleResetTimeline}
+                                    className="p-1 hover:bg-gray-700 rounded text-gray-400 hover:text-red-400 disabled:opacity-30 transition-colors"
+                                    title="Reset Timeline"
+                                 >
+                                     <RotateCcw className="w-3 h-3" />
                                  </button>
                              </div>
                          </div>

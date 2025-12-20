@@ -3,7 +3,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import { generateSpeech, transcribeAudio } from '../services/geminiService';
 import { saveItem } from '../services/storageService';
 import { decodeBase64, decodeAudioData, playAudioBuffer, createWavBlob } from '../services/audioUtils';
-import { Loader2, Mic, Play, Pause, Bookmark, Check, User, Upload, X, Plus, FileAudio, Sliders, Radio, Square, Trash2, FileText } from 'lucide-react';
+import { Loader2, Mic, Play, Pause, Bookmark, Check, User, Upload, X, Plus, FileAudio, Sliders, Radio, Square, Trash2, FileText, Type } from 'lucide-react';
 
 interface Voice {
     id: string;
@@ -23,6 +23,7 @@ const INITIAL_VOICES: Voice[] = [
 ];
 
 const AudioStudio: React.FC = () => {
+  const [mode, setMode] = useState<'tts' | 'transcribe'>('tts');
   const [text, setText] = useState('');
   const [selectedVoice, setSelectedVoice] = useState('Kore');
   const [voices, setVoices] = useState<Voice[]>(INITIAL_VOICES);
@@ -414,49 +415,125 @@ const AudioStudio: React.FC = () => {
 
         {/* Main Studio Area */}
         <div className="lg:col-span-8 space-y-6">
+            {/* Mode Switcher */}
+            <div className="flex space-x-1 bg-white dark:bg-gray-800 p-1.5 rounded-xl border border-gray-200 dark:border-gray-700 w-fit">
+                <button 
+                    onClick={() => setMode('tts')}
+                    className={`px-4 py-2 rounded-lg text-xs font-bold transition-all ${mode === 'tts' ? 'bg-brand-600 text-white shadow-md' : 'text-gray-500 hover:text-gray-900 dark:hover:text-white hover:bg-gray-50 dark:hover:bg-gray-700'}`}
+                >
+                    Text to Speech
+                </button>
+                <button 
+                    onClick={() => setMode('transcribe')}
+                    className={`px-4 py-2 rounded-lg text-xs font-bold transition-all flex items-center gap-2 ${mode === 'transcribe' ? 'bg-brand-600 text-white shadow-md' : 'text-gray-500 hover:text-gray-900 dark:hover:text-white hover:bg-gray-50 dark:hover:bg-gray-700'}`}
+                >
+                    <Mic className="w-3 h-3" /> Transcription
+                </button>
+            </div>
+
             <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm p-6 flex flex-col h-full max-h-[600px]">
-                <div className="flex justify-between items-center mb-4">
-                    <label className="text-sm font-bold text-gray-900 dark:text-white">Script</label>
-                    <span className="text-xs text-gray-400">{text.length} chars</span>
-                </div>
-                <textarea 
-                    value={text}
-                    onChange={(e) => setText(e.target.value)}
-                    placeholder="Enter the text you want to convert to speech..."
-                    className="w-full p-4 border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900 dark:text-white rounded-xl focus:ring-2 focus:ring-brand-500 outline-none flex-1 resize-none font-mono text-sm leading-relaxed"
-                />
-                
-                <div className="mt-6 flex justify-end gap-3">
-                    <input 
-                        type="file" 
-                        ref={mainFileInputRef}
-                        onChange={handleMainFileUpload}
-                        accept="audio/*"
-                        className="hidden"
-                    />
-                    <button
-                        onClick={() => mainFileInputRef.current?.click()}
-                        className="py-3 px-4 rounded-xl font-bold bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors flex items-center"
-                        title="Upload Audio File for Playback or Transcription"
-                    >
-                        <Upload className="w-5 h-5 mr-2" />
-                        Upload Audio
-                    </button>
-                    
-                    <button
-                        onClick={handleGenerate}
-                        disabled={loading || !text}
-                        className={`
-                            py-3 px-8 rounded-xl font-bold flex items-center shadow-lg transition-all border-2 border-transparent
-                            ${loading || !text 
-                                ? 'bg-gray-300 dark:bg-gray-600 cursor-not-allowed text-gray-500' 
-                                : 'bg-brand-900 text-white hover:bg-brand-800 border-brand-700 hover:scale-[1.02] shadow-brand-900/20'}
-                        `}
-                    >
-                        {loading ? <Loader2 className="animate-spin w-5 h-5 mr-2" /> : <Mic className="w-5 h-5 mr-2" />}
-                        {loading ? 'Synthesizing...' : 'Generate Audio'}
-                    </button>
-                </div>
+                {mode === 'tts' ? (
+                    <>
+                        <div className="flex justify-between items-center mb-4">
+                            <label className="text-sm font-bold text-gray-900 dark:text-white">Script</label>
+                            <span className="text-xs text-gray-400">{text.length} chars</span>
+                        </div>
+                        <textarea 
+                            value={text}
+                            onChange={(e) => setText(e.target.value)}
+                            placeholder="Enter the text you want to convert to speech..."
+                            className="w-full p-4 border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900 dark:text-white rounded-xl focus:ring-2 focus:ring-brand-500 outline-none flex-1 resize-none font-mono text-sm leading-relaxed"
+                        />
+                        
+                        <div className="mt-6 flex justify-end gap-3">
+                            <button
+                                onClick={handleGenerate}
+                                disabled={loading || !text}
+                                className={`
+                                    py-3 px-8 rounded-xl font-bold flex items-center shadow-lg transition-all border-2 border-transparent
+                                    ${loading || !text 
+                                        ? 'bg-gray-300 dark:bg-gray-600 cursor-not-allowed text-gray-500' 
+                                        : 'bg-brand-900 text-white hover:bg-brand-800 border-brand-700 hover:scale-[1.02] shadow-brand-900/20'}
+                                `}
+                            >
+                                {loading ? <Loader2 className="animate-spin w-5 h-5 mr-2" /> : <Mic className="w-5 h-5 mr-2" />}
+                                {loading ? 'Synthesizing...' : 'Generate Audio'}
+                            </button>
+                        </div>
+                    </>
+                ) : (
+                    <>
+                        <div className="flex justify-between items-center mb-4">
+                            <h3 className="font-bold text-gray-900 dark:text-white flex items-center">
+                                <FileText className="w-4 h-4 mr-2 text-brand-500" />
+                                Audio Transcription
+                            </h3>
+                        </div>
+
+                        {!audioBuffer && (
+                            <div 
+                                onClick={() => mainFileInputRef.current?.click()}
+                                className="border-2 border-dashed border-gray-200 dark:border-gray-700 rounded-xl p-8 flex flex-col items-center justify-center text-center cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-900 transition-colors h-48 mb-4"
+                            >
+                                <Upload className="w-10 h-10 text-gray-400 mb-3" />
+                                <p className="font-bold text-gray-700 dark:text-gray-300">Upload Audio File</p>
+                                <p className="text-xs text-gray-500 mt-1">Supports MP3, WAV, M4A, OGG</p>
+                            </div>
+                        )}
+
+                        <input 
+                            type="file" 
+                            ref={mainFileInputRef}
+                            onChange={handleMainFileUpload}
+                            accept="audio/*"
+                            className="hidden"
+                        />
+
+                        {audioBuffer && (
+                            <div className="bg-brand-50 dark:bg-brand-900/10 border border-brand-200 dark:border-brand-800 rounded-xl p-4 mb-4 flex items-center justify-between">
+                                <div className="flex items-center gap-3">
+                                    <FileAudio className="w-8 h-8 text-brand-600 dark:text-brand-400" />
+                                    <div>
+                                        <p className="text-sm font-bold text-brand-900 dark:text-brand-100">Audio Loaded</p>
+                                        <p className="text-xs text-brand-700 dark:text-brand-300">{audioBuffer.duration.toFixed(1)} seconds</p>
+                                    </div>
+                                </div>
+                                <button 
+                                    onClick={() => { setAudioBuffer(null); setRawAudio(null); if (mainFileInputRef.current) mainFileInputRef.current.value = ''; }}
+                                    className="p-2 hover:bg-brand-200 dark:hover:bg-brand-800 rounded-lg text-brand-700 dark:text-brand-300 transition-colors"
+                                >
+                                    <X className="w-4 h-4" />
+                                </button>
+                            </div>
+                        )}
+
+                        <div className="flex-1 flex flex-col min-h-0">
+                            <label className="text-xs font-bold text-gray-500 uppercase mb-2">Transcript Output</label>
+                            <textarea 
+                                value={text}
+                                onChange={(e) => setText(e.target.value)}
+                                placeholder="Transcription result will appear here..."
+                                className="w-full p-4 border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900 dark:text-white rounded-xl focus:ring-2 focus:ring-brand-500 outline-none flex-1 resize-none text-sm leading-relaxed"
+                            />
+                        </div>
+
+                        <div className="mt-4 flex justify-end">
+                             <button
+                                onClick={handleTranscribeAudio}
+                                disabled={isTranscribing || !audioBuffer}
+                                className={`
+                                    py-3 px-6 rounded-xl font-bold flex items-center transition-all
+                                    ${isTranscribing || !audioBuffer 
+                                        ? 'bg-gray-100 dark:bg-gray-700 text-gray-400 cursor-not-allowed' 
+                                        : 'bg-brand-900 text-white hover:bg-brand-800 shadow-lg shadow-brand-900/20'}
+                                `}
+                            >
+                                {isTranscribing ? <Loader2 className="animate-spin w-4 h-4 mr-2" /> : <Type className="w-4 h-4 mr-2" />}
+                                {isTranscribing ? 'Transcribing...' : 'Start Transcription'}
+                            </button>
+                        </div>
+                    </>
+                )}
             </div>
 
             {/* Player Card */}
@@ -473,9 +550,9 @@ const AudioStudio: React.FC = () => {
                             {isPlaying ? <Pause className="w-6 h-6 fill-current" /> : <Play className="w-6 h-6 fill-current ml-1" />}
                         </button>
                         <div className="min-w-0 flex-1">
-                            <h3 className="font-bold text-white text-lg truncate">{text ? 'Generated Output' : 'Audio Playback'}</h3>
+                            <h3 className="font-bold text-white text-lg truncate">{text && mode === 'tts' ? 'Generated Output' : 'Audio Playback'}</h3>
                             <div className="flex items-center text-xs text-gray-400 gap-3">
-                                <span className="flex items-center"><User className="w-3 h-3 mr-1" /> {text ? (voices.find(v => v.id === selectedVoice)?.name || selectedVoice) : 'Uploaded File'}</span>
+                                <span className="flex items-center"><User className="w-3 h-3 mr-1" /> {text && mode === 'tts' ? (voices.find(v => v.id === selectedVoice)?.name || selectedVoice) : 'Uploaded File'}</span>
                                 <span className="w-1 h-1 bg-gray-600 rounded-full"></span>
                                 <span>{audioBuffer ? `${audioBuffer.duration.toFixed(1)}s` : '--:--'}</span>
                             </div>
@@ -483,7 +560,7 @@ const AudioStudio: React.FC = () => {
                     </div>
                     
                     <div className="flex items-center gap-3 w-full sm:w-auto justify-end">
-                        {audioBuffer && (
+                        {audioBuffer && mode === 'tts' && (
                              <button 
                                 onClick={handleTranscribeAudio}
                                 disabled={isTranscribing}
